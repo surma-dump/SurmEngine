@@ -29,9 +29,9 @@ function setup(gl) {
   const vertexVBO = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, vertexVBO);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-    0, 0.5, 0,
-    -0.5, -0.5, 0,
-    0.5, -0.5, 0
+    0, 0.2, 0,
+    -0.2, -0.2, 0,
+    0.2, -0.2, 0
   ]), gl.STATIC_DRAW);
   gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
   gl.enableVertexAttribArray(0);
@@ -50,11 +50,14 @@ function setup(gl) {
 
     in vec3 in_coords;
     in vec3 in_color;
+    in vec2 in_uv;
     uniform vec3 offset;
     out vec4 color;
+    out vec2 uv;
     void main(void) {
       gl_Position = vec4(in_coords + offset, 1);
-      color = vec4(in_color, 1);
+      color = vec4(float(gl_VertexID)/2.0, 0, 0, 1);//vec4(in_color, 1);
+      uv = in_uv;
     }
   `);
   if (!vShader) {
@@ -67,9 +70,11 @@ function setup(gl) {
     precision highp float;
 
     in vec4 color;
+    in vec2 uv;
     out vec4 out_color;
+    uniform sampler2d tex;
     void main(void) {
-      out_color = color;
+      out_color = texture(tex, gl_PointCoords);
     }
   `);
   if (!fShader) {
@@ -80,7 +85,9 @@ function setup(gl) {
   const program = gl.createProgram();
   gl.attachShader(program, fShader);
   gl.attachShader(program, vShader);
-  gl.bindAttribLocation(program, vertexVBO, 'coords');
+  gl.bindAttribLocation(program, 0, 'in_coords');
+  gl.bindAttribLocation(program, 1, 'in_color');
+  gl.bindAttribLocation(program, 2, 'in_uvs');
   gl.linkProgram(program);
   if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
     stop = true;
