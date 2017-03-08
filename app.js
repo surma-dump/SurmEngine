@@ -23,7 +23,7 @@ function createShader(gl, type, source) {
   return shader;
 }
 
-function setup(gl) {
+function setup(gl, tex) {
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
   const vertexVBO = gl.createBuffer();
@@ -40,10 +40,35 @@ function setup(gl) {
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
     1, 0, 0,
     0, 1, 0,
-    0, 0, 1
+    0, 0, 1,
   ]), gl.STATIC_DRAW);
   gl.vertexAttribPointer(1, 3, gl.FLOAT, true, 0, 0);
   gl.enableVertexAttribArray(1);
+  const uvVBO = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, uvVBO);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    0.5, 0,
+    0, 1,
+    1, 1,
+  ]), gl.STATIC_DRAW);
+  gl.vertexAttribPointer(2, 2, gl.FLOAT, true, 0, 0);
+  gl.enableVertexAttribArray(2);
+
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    tex
+  );
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.activeTexture(gl.TEXTURE0);
+
 
   const vShader = createShader(gl, gl.VERTEX_SHADER,
     `#version 300 es
@@ -56,7 +81,8 @@ function setup(gl) {
     out vec2 uv;
     void main(void) {
       gl_Position = vec4(in_coords + offset, 1);
-      color = vec4(float(gl_VertexID)/2.0, 0, 0, 1);//vec4(in_color, 1);
+      // color = vec4(float(gl_VertexID)/2.0, 0, 0, 1);
+      color = vec4(in_color, 1);
       uv = in_uv;
     }
   `);
@@ -72,9 +98,9 @@ function setup(gl) {
     in vec4 color;
     in vec2 uv;
     out vec4 out_color;
-    uniform sampler2d tex;
+    uniform sampler2D tex;
     void main(void) {
-      out_color = texture(tex, gl_PointCoords);
+      out_color = texture(tex, uv);
     }
   `);
   if (!fShader) {
@@ -101,26 +127,27 @@ function setup(gl) {
     return;
   }
   gl.useProgram(program);
-  const offset = gl.getUniformLocation(program, 'offset');
   return {
     uniforms: {
-      offset
+      offset: gl.getUniformLocation(program, 'offset'),
+      texture: gl.getUniformLocation(program, 'tex'),
     }
   }
 }
 
 function loop(gl, data) {
   gl.clearBufferfv(gl.COLOR, 0, new Float32Array([1, 0, 0, 1]));
-  gl.uniform3f(data.uniforms.offset, 0, 0, 0);
-  gl.drawArrays(gl.TRIANGLES, 0, 3);
   gl.uniform3f(data.uniforms.offset, 0.5, 0, 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.uniform3f(data.uniforms.offset, 0, 0, 0);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
   gl.uniform3f(data.uniforms.offset, -0.5, 0, 0);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 
-function start() {
-  const data = setup(gl);
+function start(tex) {
+  const data = setup(gl, tex);
+  gl.uniform1i(data.texture, gl.TEXTURE0);
   requestAnimationFrame(function f() {
     const now = performance.now();
     const fps = 1000/(now - last);
@@ -130,4 +157,16 @@ function start() {
   });
 }
 
-start();
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const node = document.createElement('img');
+    node.onload = _ => resolve(node);
+    node.onerror = _ => reject();
+    node.src = url;
+  });
+}
+
+loadImage('uvgrid.jpg')
+  .then(tex => {
+    start(tex);
+  });
