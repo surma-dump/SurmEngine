@@ -89,12 +89,14 @@ function setup(gl, tex) {
     in vec4 in_color;
     in vec2 in_uv;
     in vec3 in_barycentric;
-    uniform vec3 offset;
+    uniform mat4 transform;
+    uniform mat4 camera;
+    uniform mat4 view;
     out vec4 color;
     out vec2 uv;
     out vec3 barycentric;
     void main(void) {
-      gl_Position = vec4(in_coords + offset, 1);
+      gl_Position = view * camera * transform * vec4(in_coords, 1);
       color = in_color;
       uv = in_uv;
       barycentric = in_barycentric;
@@ -159,19 +161,40 @@ function setup(gl, tex) {
   gl.useProgram(program);
   return {
     uniforms: {
-      offset: gl.getUniformLocation(program, 'offset'),
+      transform: gl.getUniformLocation(program, 'transform'),
+      camera: gl.getUniformLocation(program, 'camera'),
+      view: gl.getUniformLocation(program, 'view'),
       texture: gl.getUniformLocation(program, 'tex'),
     }
   }
 }
 
-function loop(gl, data) {
+function loop(gl, data, now) {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  gl.uniform3f(data.uniforms.offset, 0.5, 0, 0);
+
+  gl.uniformMatrix4fv(data.uniforms.view, false,
+    mat4.perspective(mat4.create(), glMatrix.toRadian(60), gl.canvas.width/gl.canvas.height, 0.1, 100));
+  // gl.uniformMatrix4fv(data.uniforms.view, false, mat4.create());
+
+  gl.uniformMatrix4fv(data.uniforms.camera, false,
+    mat4.lookAt(
+      mat4.create(),
+      vec3.fromValues(0, 0, 2),
+      vec3.fromValues(0, 0, 0),
+      vec3.fromValues(0, 1, 0)
+    ));
+
+
+  const base = mat4.create();
+  const offset = vec3.fromValues(0.5, 0, 0);
+  mat4.translate(base, base, vec3.fromValues(-0.5, 0, 0));
+  gl.uniformMatrix4fv(data.uniforms.transform, false, mat4.rotateY(mat4.create(), base, glMatrix.toRadian(now/1000 * 180 % 360)));
   gl.drawArrays(gl.TRIANGLES, 0, 3);
-  gl.uniform3f(data.uniforms.offset, 0, 0, 0);
+  mat4.translate(base, base, offset);
+  gl.uniformMatrix4fv(data.uniforms.transform, false, mat4.rotateY(mat4.create(), base, glMatrix.toRadian(now/1000 * 180 % 360)));
   gl.drawArrays(gl.TRIANGLES, 0, 3);
-  gl.uniform3f(data.uniforms.offset, -0.5, 0, 0);
+  mat4.translate(base, base, offset);
+  gl.uniformMatrix4fv(data.uniforms.transform, false, mat4.rotateY(mat4.create(), base, glMatrix.toRadian(now/1000 * 180 % 360)));
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 
