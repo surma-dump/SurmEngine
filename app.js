@@ -24,6 +24,7 @@ function createShader(gl, type, source) {
 }
 
 function setup(gl, tex) {
+  gl.clearColor(0, 0, 0, 1);
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
   const vertexVBO = gl.createBuffer();
@@ -38,11 +39,11 @@ function setup(gl, tex) {
   const colorVBO = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, colorVBO);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-    1, 0, 0,
-    0, 1, 0,
-    0, 0, 1,
+    0, 0, 0, 1,
+    0, 0, 0, 1,
+    0, 0, 0, 1,
   ]), gl.STATIC_DRAW);
-  gl.vertexAttribPointer(1, 3, gl.FLOAT, true, 0, 0);
+  gl.vertexAttribPointer(1, 4, gl.FLOAT, true, 0, 0);
   gl.enableVertexAttribArray(1);
   const uvVBO = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, uvVBO);
@@ -69,20 +70,18 @@ function setup(gl, tex) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.activeTexture(gl.TEXTURE0);
 
-
   const vShader = createShader(gl, gl.VERTEX_SHADER,
     `#version 300 es
 
     in vec3 in_coords;
-    in vec3 in_color;
+    in vec4 in_color;
     in vec2 in_uv;
     uniform vec3 offset;
     out vec4 color;
     out vec2 uv;
     void main(void) {
       gl_Position = vec4(in_coords + offset, 1);
-      // color = vec4(float(gl_VertexID)/2.0, 0, 0, 1);
-      color = vec4(in_color, 1);
+      color = in_color;
       uv = in_uv;
     }
   `);
@@ -101,6 +100,7 @@ function setup(gl, tex) {
     uniform sampler2D tex;
     void main(void) {
       out_color = texture(tex, uv);
+      out_color.a = color.a;
     }
   `);
   if (!fShader) {
@@ -136,10 +136,10 @@ function setup(gl, tex) {
 }
 
 function loop(gl, data) {
-  gl.clearBufferfv(gl.COLOR, 0, new Float32Array([1, 0, 0, 1]));
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.uniform3f(data.uniforms.offset, 0.5, 0, 0);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
-    gl.uniform3f(data.uniforms.offset, 0, 0, 0);
+  gl.uniform3f(data.uniforms.offset, 0, 0, 0);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
   gl.uniform3f(data.uniforms.offset, -0.5, 0, 0);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
