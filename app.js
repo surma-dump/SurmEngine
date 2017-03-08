@@ -54,6 +54,15 @@ function setup(gl, tex) {
   ]), gl.STATIC_DRAW);
   gl.vertexAttribPointer(2, 2, gl.FLOAT, true, 0, 0);
   gl.enableVertexAttribArray(2);
+  const barycentricVBO = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, barycentricVBO);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    1, 0, 0,
+    0, 1, 0,
+    0, 0, 1,
+  ]), gl.STATIC_DRAW);
+  gl.vertexAttribPointer(3, 3, gl.FLOAT, true, 0, 0);
+  gl.enableVertexAttribArray(3);
 
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -70,19 +79,25 @@ function setup(gl, tex) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.activeTexture(gl.TEXTURE0);
 
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
   const vShader = createShader(gl, gl.VERTEX_SHADER,
     `#version 300 es
 
     in vec3 in_coords;
     in vec4 in_color;
     in vec2 in_uv;
+    in vec3 in_barycentric;
     uniform vec3 offset;
     out vec4 color;
     out vec2 uv;
+    out vec3 barycentric;
     void main(void) {
       gl_Position = vec4(in_coords + offset, 1);
       color = in_color;
       uv = in_uv;
+      barycentric = in_barycentric;
     }
   `);
   if (!vShader) {
@@ -96,11 +111,25 @@ function setup(gl, tex) {
 
     in vec4 color;
     in vec2 uv;
+    in vec3 barycentric;
     out vec4 out_color;
     uniform sampler2D tex;
+    float weight;
+    float width = 0.02;
+    float edge = 0.01;
+
+    float bump(float min, float max, float v) {
+      return step(min, v) * (1.0 - step(max, v));
+    }
+
+    float smoothbump(float min, float max, float w, float v) {
+      return smoothstep(min, min+w, v) * (1.0 - smoothstep(max-w, max, v));
+    }
+
     void main(void) {
       out_color = texture(tex, uv);
-      out_color.a = color.a;
+      weight = smoothbump(0.0, width, edge, barycentric.x) + smoothbump(0.0, width, edge, barycentric.y) + smoothbump(0.0, width, edge, barycentric.z);
+      out_color = mix(out_color, vec4(0, 0, 0, 1), max(1.0-weight, 0.0));
     }
   `);
   if (!fShader) {
@@ -114,6 +143,7 @@ function setup(gl, tex) {
   gl.bindAttribLocation(program, 0, 'in_coords');
   gl.bindAttribLocation(program, 1, 'in_color');
   gl.bindAttribLocation(program, 2, 'in_uvs');
+  gl.bindAttribLocation(program, 3, 'in_barycentric');
   gl.linkProgram(program);
   if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
     stop = true;
