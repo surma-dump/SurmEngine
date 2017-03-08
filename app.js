@@ -1,8 +1,20 @@
 const canvas = document.querySelector('canvas');
 const gl = canvas.getContext('webgl2');
+const cameraPos = vec3.fromValues(0, 0, 2);
 let last = performance.now();
 let stop = false;
 window._gl = gl;
+
+document.addEventListener('keydown', event => {
+  switch(event.key) {
+    case 'w':
+      cameraPos[2] -= 0.01;
+      break;
+    case 's':
+      cameraPos[2] += 0.01;
+      break;
+  }
+});
 
 const ro = new ResizeObserver(entries => {
   gl.canvas.width = entries[0].contentRect.width * window.devicePixelRatio;
@@ -117,7 +129,7 @@ function setup(gl, tex) {
     out vec4 out_color;
     uniform sampler2D tex;
     float weight;
-    float width = 0.02;
+    float width = 0.04;
     float edge = 0.01;
 
     float bump(float min, float max, float v) {
@@ -179,7 +191,7 @@ function loop(gl, data, now) {
   gl.uniformMatrix4fv(data.uniforms.camera, false,
     mat4.lookAt(
       mat4.create(),
-      vec3.fromValues(0, 0, 2),
+      cameraPos,
       vec3.fromValues(0, 0, 0),
       vec3.fromValues(0, 1, 0)
     ));
