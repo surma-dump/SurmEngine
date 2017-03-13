@@ -1,5 +1,86 @@
 const canvas = document.querySelector('canvas');
 const gl = canvas.getContext('webgl2');
+
+
+const vao = new SurmEngine.VAO(gl);
+const vboVertices =
+  vao.createVBO()
+    .bind()
+    .setData(new Float32Array([
+      0, 1, 0,
+      -1, 0, 0,
+      1, 0, 0,
+    ]))
+    .setItemSize(3)
+    .setType(gl.FLOAT)
+    .setNormalize(false)
+    .setStride(0)
+    .setOffset(0)
+const vboColors =
+  vao.createVBO()
+    .bind()
+    .setData(new Float32Array([
+      1, 0, 0,
+      0, 1, 0,
+      0, 0, 1,
+    ]))
+    .setItemSize(3)
+    .setType(gl.FLOAT)
+    .setNormalize(true)
+    .setStride(0)
+    .setOffset(0)
+
+const program =
+  new SurmEngine.Program(gl)
+    .setVertexShader(`#version 300 es
+      in vec3 in_vertex;
+      in vec4 in_color;
+      uniform mat4 camera;
+      out vec4 color;
+
+      void main() {
+        gl_Position = camera * vec4(in_vertex, 1);
+        color = in_color;
+      }
+    `)
+    .setFragmentShader(`#version 300 es
+      precision highp float;
+      in vec4 color;
+      out vec4 out_color;
+
+      void main() {
+        out_color = color;
+      }
+    `)
+    .bindInVariable('in_vertex', vboVertices)
+    .bindInVariable('in_color', vboColors)
+    .activate();
+const cameraUniform = program.referenceUniform('camera');
+program.activate();
+
+const camera =
+  new SurmEngine.Camera()
+    .setAspectRatio(gl.canvas.width / gl.canvas.height)
+    .setFov(60)
+    .setNearPlane(0.1)
+    .setFarPlane(1000)
+    .setUpDirection(0, 1, 0)
+    .move(0, 0, 1)
+    .lookAt(0, 0, 0);
+cameraUniform.setMatrix4(camera.transform);
+
+gl.clearColor(0, 0, 0, 1);
+SurmEngine.Helpers.autosize(gl);
+SurmEngine.Helpers.loop(_ => {
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  vao.bind();
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+});
+
+
+/*
+const canvas = document.querySelector('canvas');
+const gl = canvas.getContext('webgl2');
 const cameraPos = vec3.fromValues(0, 0, 2);
 let last = performance.now();
 let stop = false;
@@ -235,3 +316,4 @@ loadImage('uvgrid.jpg')
   .then(tex => {
     start(tex);
   });
+*/
