@@ -146,15 +146,6 @@
       this._offset = 0;
     }
 
-    get type() {
-      return this._type;
-    }
-
-    setType(val) {
-      this._type = val;
-      return this;
-    }
-
     get itemSize() {
       return this._itemSize;
     }
@@ -236,11 +227,10 @@
       return this;
     }
 
-    rotate(axis, rad) {
-      mat4.rotate(this._transform, this._transform, rad, axis);
+    rotate(axis, deg) {
+      mat4.rotate(this._transform, this._transform, glMatrix.toRadian(deg), axis);
       return this;
     }
-
   }
 
   class Camera extends Entity {
@@ -299,14 +289,9 @@
       return this._upDirection;
     }
 
-    lookAt(x, y, z) {
-      const position = mat4.getTranslation(vec3.create(), this._transform);
-      mat4.lookAt(this._transform, position, [x, y, z], this._upDirection);
-      return this;
-    }
-
     get transform() {
-      const perspective = mat4.perspective(mat4.create(), this._fov, this._aspectRatio, this._near, this._far);
+      const perspective = mat4.perspective(mat4.create(), glMatrix.toRadian(this._fov), this._aspectRatio, this._near, this._far);
+      return perspective;
       return mat4.multiply(perspective, perspective, mat4.invert(mat4.create(), this._transform));
     }
   }
@@ -329,13 +314,19 @@
         requestAnimationFrame(x);
       });
     },
-    autosize(gl) {
+    autosize(gl, camera) {
       const ro = new ResizeObserver(entries => {
-        gl.canvas.width = entries[0].contentRect.width * window.devicePixelRatio;
-        gl.canvas.height = entries[0].contentRect.height * window.devicePixelRatio;
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        const w = entries[0].contentRect.width * window.devicePixelRatio;
+        const h = entries[0].contentRect.height * window.devicePixelRatio;
+        gl.canvas.width = w;
+        gl.canvas.height = h;
+        gl.viewport(0, 0, w, h);
+        camera.setAspectRatio(w / h);
       });
-      ro.observe(canvas);
+      ro.observe(gl.canvas);
+    },
+    logMatrix(mat4) {
+      console.table([0, 1, 2, 3].map(i => mat4.slice(i*4, (i+1)*4)));
     }
   };
 

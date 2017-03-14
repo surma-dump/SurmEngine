@@ -20,13 +20,13 @@ const vboColors =
   vao.createVBO()
     .bind()
     .setData(new Float32Array([
-      1, 0, 0,
-      0, 1, 0,
-      0, 0, 1,
+      1, 0, 0, 1,
+      0, 1, 0, 1,
+      0, 0, 1, 1,
     ]))
-    .setItemSize(3)
+    .setItemSize(4)
     .setType(gl.FLOAT)
-    .setNormalize(true)
+    .setNormalize(false)
     .setStride(0)
     .setOffset(0)
 
@@ -61,20 +61,43 @@ program.activate();
 const camera =
   new SurmEngine.Camera()
     .setAspectRatio(gl.canvas.width / gl.canvas.height)
-    .setFov(60)
+    .setFov(30)
     .setNearPlane(0.1)
     .setFarPlane(1000)
     .setUpDirection(0, 1, 0)
-    .move(0, 0, 1)
-    .lookAt(0, 0, 0);
-cameraUniform.setMatrix4(camera.transform);
+    .move(0, 0, 5);
 
 gl.clearColor(0, 0, 0, 1);
-SurmEngine.Helpers.autosize(gl);
+SurmEngine.Helpers.autosize(gl, camera);
+SurmEngine.Helpers.logMatrix(camera._transform);
 SurmEngine.Helpers.loop(_ => {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  vao.bind();
+  cameraUniform.setMatrix4(camera.transform);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
+});
+
+let alpha = 0;
+document.addEventListener('keydown', event => {
+  switch(event.code) {
+    case 'KeyQ':
+      camera.rotate([0, 1, 0], -1);
+      break;
+    case 'KeyE':
+      camera.rotate([0, 1, 0], 1);
+      break;
+    case 'KeyW':
+      camera.move(0, 0, -0.1);
+      break;
+    case 'KeyS':
+      camera.move(0, 0, 0.1);
+      break;
+    case 'KeyA':
+      camera.move(-0.1, 0, 0);
+      break;
+    case 'KeyD':
+      camera.move(0.1, 0, 0);
+      break;
+  }
 });
 
 
