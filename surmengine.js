@@ -67,8 +67,9 @@
         slotId = this._freeSlot();
       }
       this._variableBindings[name] = slotId;
-      this._gl.bindAttribLocation(this._program, slotId, name);
       vbo._bindSlotId(slotId);
+      this._gl.enableVertexAttribArray(slotId);
+      this._gl.bindAttribLocation(this._program, slotId, name);
       return this;
     }
 
@@ -202,8 +203,8 @@
     }
 
     _bindSlotId(slotId) {
+      this.bind();
       this._gl.vertexAttribPointer(slotId, this._itemSize, this._type, this._normalized, this._stride, this._offset);
-      this._gl.enableVertexAttribArray(slotId);
     }
   }
 
@@ -229,6 +230,17 @@
 
     rotate(axis, deg) {
       mat4.rotate(this._transform, this._transform, glMatrix.toRadian(deg), axis);
+      return this;
+    }
+
+    rotateAround(point, axis, deg) {
+      // TODO: Optimize me
+      const t_in = mat4.fromTranslation(mat4.create(), vec3.negate(vec3.create(), point));
+      const t_out = mat4.fromTranslation(mat4.create(), point);
+      const r = mat4.fromRotation(mat4.create(), glMatrix.toRadian(deg), axis);
+      mat4.multiply(this._transform, t_in, this._transform);
+      mat4.multiply(this._transform, r, this._transform);
+      mat4.multiply(this._transform, t_out, this._transform);
       return this;
     }
   }
@@ -290,9 +302,11 @@
     }
 
     get transform() {
-      const perspective = mat4.perspective(mat4.create(), glMatrix.toRadian(this._fov), this._aspectRatio, this._near, this._far);
-      return perspective;
-      return mat4.multiply(perspective, perspective, mat4.invert(mat4.create(), this._transform));
+      return mat4.invert(mat4.create(), this._transform);
+    }
+
+    get viewMatrix() {
+      return mat4.perspective(mat4.create(), glMatrix.toRadian(this._fov), this._aspectRatio, this._near, this._far);
     }
   }
 
@@ -314,19 +328,20 @@
         requestAnimationFrame(x);
       });
     },
-    autosize(gl, camera) {
+    autosize(gl, f) {
       const ro = new ResizeObserver(entries => {
         const w = entries[0].contentRect.width * window.devicePixelRatio;
         const h = entries[0].contentRect.height * window.devicePixelRatio;
         gl.canvas.width = w;
         gl.canvas.height = h;
         gl.viewport(0, 0, w, h);
-        camera.setAspectRatio(w / h);
+        f && f();
       });
       ro.observe(gl.canvas);
     },
-    logMatrix(mat4) {
-      console.table([0, 1, 2, 3].map(i => mat4.slice(i*4, (i+1)*4)));
+    logMatrix(m) {
+      const t = mat4.transpose(mat4.create(), m);
+      console.table([0, 1, 2, 3].map(i => t.slice(i*4, (i+1)*4)));
     }
   };
 

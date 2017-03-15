@@ -8,8 +8,8 @@ const vboVertices =
     .bind()
     .setData(new Float32Array([
       0, 1, 0,
-      -1, 0, 0,
-      1, 0, 0,
+      -1, -1, 0,
+      1, -1, 0,
     ]))
     .setItemSize(3)
     .setType(gl.FLOAT)
@@ -35,11 +35,13 @@ const program =
     .setVertexShader(`#version 300 es
       in vec3 in_vertex;
       in vec4 in_color;
+      uniform mat4 view;
       uniform mat4 camera;
+      uniform mat4 model;
       out vec4 color;
 
       void main() {
-        gl_Position = camera * vec4(in_vertex, 1);
+        gl_Position = view * camera * model * vec4(in_vertex, 1);
         color = in_color;
       }
     `)
@@ -55,7 +57,9 @@ const program =
     .bindInVariable('in_vertex', vboVertices)
     .bindInVariable('in_color', vboColors)
     .activate();
+const modelUniform = program.referenceUniform('model');
 const cameraUniform = program.referenceUniform('camera');
+const viewUniform = program.referenceUniform('view');
 program.activate();
 
 const camera =
@@ -65,25 +69,37 @@ const camera =
     .setNearPlane(0.1)
     .setFarPlane(1000)
     .setUpDirection(0, 1, 0)
-    .move(0, 0, 5);
+    .move(0, 0, 15);
 
 gl.clearColor(0, 0, 0, 1);
-SurmEngine.Helpers.autosize(gl, camera);
-SurmEngine.Helpers.logMatrix(camera._transform);
+SurmEngine.Helpers.autosize(gl, _ => {
+  camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
+  viewUniform.setMatrix4(camera.viewMatrix);
+});
+viewUniform.setMatrix4(camera.viewMatrix);
+
 SurmEngine.Helpers.loop(_ => {
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   cameraUniform.setMatrix4(camera.transform);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  const m = mat4.create();
+  modelUniform.setMatrix4(m);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  modelUniform.setMatrix4(mat4.fromTranslation(m, [1, 0, 1]));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  modelUniform.setMatrix4(mat4.fromTranslation(m, [2, 0, 2]));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  modelUniform.setMatrix4(mat4.fromTranslation(m, [3, 0, 3]));
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 });
 
-let alpha = 0;
 document.addEventListener('keydown', event => {
   switch(event.code) {
     case 'KeyQ':
-      camera.rotate([0, 1, 0], -1);
+      camera.rotateAround([0, 0, 0], [0, 1, 0], -1);
       break;
     case 'KeyE':
-      camera.rotate([0, 1, 0], 1);
+      camera.rotateAround([0, 0, 0], [0, 1, 0], 1);
       break;
     case 'KeyW':
       camera.move(0, 0, -0.1);
