@@ -321,11 +321,37 @@
     }
   }
 
+  class KeyboardState {
+    constructor() {
+      this._pressMap = new Set();
+      document.addEventListener('keydown', this._onKeyDown.bind(this));
+      document.addEventListener('keyup', this._onKeyUp.bind(this));
+    }
+
+    _onKeyDown(event) {
+      this._pressMap.add(event.code);
+    }
+
+    _onKeyUp(event) {
+      this._pressMap.delete(event.code);
+    }
+
+    isDown(code) {
+      return this._pressMap.has(code);
+    }
+
+    [Symbol.iterator]() {
+      return this._pressMap[Symbol.iterator]();
+    }
+  }
+
   const Helpers = {
     loop(f) {
-      requestAnimationFrame(function x() {
-        f();
+      let last = performance.now();
+      requestAnimationFrame(function x(ts) {
+        f(ts - last);
         requestAnimationFrame(x);
+        last = ts;
       });
     },
     autosize(gl, f) {
@@ -352,5 +378,6 @@
     Camera,
     Triangle,
     Helpers,
+    KeyboardState,
   };
 })(self);

@@ -72,15 +72,40 @@ const camera =
     .move(0, 0, 15);
 
 gl.clearColor(0, 0, 0, 1);
+gl.enable(gl.DEPTH_TEST);
 SurmEngine.Helpers.autosize(gl, _ => {
   camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
   viewUniform.setMatrix4(camera.viewMatrix);
 });
 viewUniform.setMatrix4(camera.viewMatrix);
 
-SurmEngine.Helpers.loop(_ => {
+const keyboard = new SurmEngine.KeyboardState();
+SurmEngine.Helpers.loop(delta => {
   cameraUniform.setMatrix4(camera.transform);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  for(let key of keyboard) {
+    switch(key) {
+      case 'KeyQ':
+        camera.rotate([0, 1, 0], 36*delta/1000);
+        break;
+      case 'KeyE':
+        camera.rotate([0, 1, 0], -36*delta/1000);
+        break;
+      case 'KeyW':
+        camera.move(0, 0, -1 * delta/1000);
+        break;
+      case 'KeyA':
+        camera.move(-1 * delta/1000, 0, 0);
+        break;
+      case 'KeyS':
+        camera.move(0, 0, 1 * delta/1000);
+        break;
+      case 'KeyD':
+        camera.move(1 * delta/1000, 0, 0);
+        break;
+    }
+  }
 
   const m = mat4.create();
   modelUniform.setMatrix4(m);
@@ -92,30 +117,6 @@ SurmEngine.Helpers.loop(_ => {
   modelUniform.setMatrix4(mat4.fromTranslation(m, [3, 0, 3]));
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 });
-
-document.addEventListener('keydown', event => {
-  switch(event.code) {
-    case 'KeyQ':
-      camera.rotateAround([0, 0, 0], [0, 1, 0], -1);
-      break;
-    case 'KeyE':
-      camera.rotateAround([0, 0, 0], [0, 1, 0], 1);
-      break;
-    case 'KeyW':
-      camera.move(0, 0, -0.1);
-      break;
-    case 'KeyS':
-      camera.move(0, 0, 0.1);
-      break;
-    case 'KeyA':
-      camera.move(-0.1, 0, 0);
-      break;
-    case 'KeyD':
-      camera.move(0.1, 0, 0);
-      break;
-  }
-});
-
 
 /*
 const canvas = document.querySelector('canvas');
