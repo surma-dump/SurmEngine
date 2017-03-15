@@ -353,11 +353,28 @@
   const Helpers = {
     loop(f) {
       let last = performance.now();
-      requestAnimationFrame(function x(ts) {
-        f(ts - last);
-        requestAnimationFrame(x);
-        last = ts;
-      });
+      let cntinue = true;
+      function start() {
+        requestAnimationFrame(function x(ts) {
+          f(ts - last);
+          if (cntinue) requestAnimationFrame(x);
+          last = ts;
+        });
+      }
+
+      start();
+      return {
+        play() {
+          cntinue = true;
+          start();
+        },
+        pause() {
+          cntinue = false;
+        },
+        get isPaused() {
+          return !cntinue;
+        }
+      };
     },
     autosize(gl, f) {
       const ro = new ResizeObserver(entries => {

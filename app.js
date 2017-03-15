@@ -83,7 +83,7 @@ SurmEngine.Helpers.autosize(gl, _ => {
 viewUniform.setMatrix4(camera.viewMatrix);
 
 const keyboard = new SurmEngine.KeyboardState();
-SurmEngine.Helpers.loop(delta => {
+const ctrl = SurmEngine.Helpers.loop(delta => {
     for(let key of keyboard) {
     switch(key) {
       case 'KeyQ':
@@ -120,6 +120,14 @@ SurmEngine.Helpers.loop(delta => {
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 });
 
+document.addEventListener('keypress', event => {
+  if(event.code === 'KeyP') {
+    if(ctrl.isPaused)
+      ctrl.play();
+    else
+      ctrl.pause();
+  }
+});
 /*
 const canvas = document.querySelector('canvas');
 const gl = canvas.getContext('webgl2');
