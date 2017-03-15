@@ -3,6 +3,7 @@ const gl = canvas.getContext('webgl2');
 
 
 const vao = new SurmEngine.VAO(gl);
+const indexManager = new SurmEngine.VAOIndexManager(vao);
 const vboVertices =
   vao.createVBO()
     .bind()
@@ -16,6 +17,7 @@ const vboVertices =
     .setNormalize(false)
     .setStride(0)
     .setOffset(0)
+    .bindToIndex(indexManager.indexForName('in_vertex'));
 const vboColors =
   vao.createVBO()
     .bind()
@@ -29,6 +31,7 @@ const vboColors =
     .setNormalize(false)
     .setStride(0)
     .setOffset(0)
+    .bindToIndex(indexManager.indexForName('in_color'));
 
 const program =
   new SurmEngine.Program(gl)
@@ -54,8 +57,8 @@ const program =
         out_color = color;
       }
     `)
-    .bindInVariable('in_vertex', vboVertices)
-    .bindInVariable('in_color', vboColors)
+    .bindInVariable('in_vertex', indexManager.indexForName('in_vertex'))
+    .bindInVariable('in_color', indexManager.indexForName('in_color'))
     .activate();
 const modelUniform = program.referenceUniform('model');
 const cameraUniform = program.referenceUniform('camera');
@@ -81,10 +84,7 @@ viewUniform.setMatrix4(camera.viewMatrix);
 
 const keyboard = new SurmEngine.KeyboardState();
 SurmEngine.Helpers.loop(delta => {
-  cameraUniform.setMatrix4(camera.transform);
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-  for(let key of keyboard) {
+    for(let key of keyboard) {
     switch(key) {
       case 'KeyQ':
         camera.rotate([0, 1, 0], 36*delta/1000);
@@ -107,6 +107,8 @@ SurmEngine.Helpers.loop(delta => {
     }
   }
 
+  cameraUniform.setMatrix4(camera.transform);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   const m = mat4.create();
   modelUniform.setMatrix4(m);
   gl.drawArrays(gl.TRIANGLES, 0, 3);

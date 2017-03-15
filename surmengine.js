@@ -59,17 +59,9 @@
       throw new Error(`No VBA slot available`);
     }
 
-    bindInVariable(name, vbo) {
-      let slotId = -1;
-      if(this._variableBindings.hasOwnProperty(name)) {
-        slotId = this._variableBindings[name];
-      } else {
-        slotId = this._freeSlot();
-      }
-      this._variableBindings[name] = slotId;
-      vbo._bindSlotId(slotId);
-      this._gl.enableVertexAttribArray(slotId);
-      this._gl.bindAttribLocation(this._program, slotId, name);
+    bindInVariable(name, index) {
+      this._gl.enableVertexAttribArray(index);
+      this._gl.bindAttribLocation(this._program, index, name);
       return this;
     }
 
@@ -114,6 +106,30 @@
     setVector4(vec4) {
       this._gl.uniform4v(this._ref, vec4);
     }
+  }
+
+  class VAOIndexManager {
+    constructor(vao) {
+      this._vao = vao;
+      this._bindings = {};
+    }
+
+    indexForName(name) {
+      let slotId = -1;
+      if(this._bindings.hasOwnProperty(name)) {
+        return this._bindings[name];
+      }
+      return this._bindings[name] = this._freeIndex();
+    }
+
+    _freeIndex() {
+      const usedKeys = Object.values(this._bindings);
+      for(let i = 0; i < this._vao._gl.MAX_VERTEX_ATTRIBS; i++) {
+        if(!usedKeys.includes(i)) return i;
+      }
+      throw new Error(`No VAO index available`);
+    }
+
   }
 
   class VAO {
@@ -202,9 +218,9 @@
       return this;
     }
 
-    _bindSlotId(slotId) {
+    bindToIndex(index) {
       this.bind();
-      this._gl.vertexAttribPointer(slotId, this._itemSize, this._type, this._normalized, this._stride, this._offset);
+      this._gl.vertexAttribPointer(index, this._itemSize, this._type, this._normalized, this._stride, this._offset);
     }
   }
 
@@ -310,17 +326,6 @@
     }
   }
 
-  class Triangle extends Entity {
-    constructor() {
-      super();
-      this._vertices = [
-        vec3.fromValues(0, 1, 0),
-        vec3.fromValues(-1, 0, 0),
-        vec3.fromValues(1, 0, 0),
-      ];
-    }
-  }
-
   class KeyboardState {
     constructor() {
       this._pressMap = new Set();
@@ -374,9 +379,9 @@
   module.SurmEngine = {
     Program,
     VAO,
+    VAOIndexManager,
     Entity,
     Camera,
-    Triangle,
     Helpers,
     KeyboardState,
   };
