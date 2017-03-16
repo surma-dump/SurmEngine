@@ -302,12 +302,29 @@
       super();
       this._vao = vao;
       this._program = program;
+      this._modelUniform = this._program.referenceUniform('model');
+      this._cameraUniform = this._program.referenceUniform('camera');
+      this._viewUniform = this._program.referenceUniform('view');
+
       this._n = n;
+    }
+
+    get modelUniform() {
+      return this._modelUniform;
+    }
+
+    get viewUniform() {
+      return this._viewUniform;
+    }
+
+    get cameraUniform() {
+      return this._cameraUniform;
     }
 
     render() {
       this._vao.bind()
       this._program.activate();
+      this._modelUniform.setMatrix4(this._transform);
       this._vao._gl.drawArrays(gl.TRIANGLES, 0, this._n);
     }
   }
@@ -465,9 +482,10 @@
 
   const Helpers = {
     loop(f) {
-      let last = performance.now();
+      let last;
       let cntinue = true;
       function start() {
+        last = performance.now();
         requestAnimationFrame(function x(ts) {
           f(ts - last);
           if (cntinue) requestAnimationFrame(x);

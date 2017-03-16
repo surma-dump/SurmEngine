@@ -2,9 +2,6 @@ const canvas = document.querySelector('canvas');
 const gl = canvas.getContext('webgl2');
 
 const t = new SurmEngine.TestTriangle(gl);
-const modelUniform = t._program.referenceUniform('model');
-const cameraUniform = t._program.referenceUniform('camera');
-const viewUniform = t._program.referenceUniform('view');
 
 const camera =
   new SurmEngine.Camera()
@@ -19,9 +16,9 @@ gl.clearColor(0, 0, 0, 1);
 gl.enable(gl.DEPTH_TEST);
 SurmEngine.Helpers.autosize(gl, _ => {
   camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
-  viewUniform.setMatrix4(camera.viewMatrix);
+  t.viewUniform.setMatrix4(camera.viewMatrix);
 });
-viewUniform.setMatrix4(camera.viewMatrix);
+t.viewUniform.setMatrix4(camera.viewMatrix);
 
 const keyboard = new SurmEngine.KeyboardState();
 const ctrl = SurmEngine.Helpers.loop(delta => {
@@ -48,17 +45,17 @@ const ctrl = SurmEngine.Helpers.loop(delta => {
     }
   }
 
-  cameraUniform.setMatrix4(camera.transform);
+  t.cameraUniform.setMatrix4(camera.transform);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  const m = mat4.create();
-  modelUniform.setMatrix4(m);
+  t.rotate([0, 1, 0], -80*delta/1000);
   t.render();
-  modelUniform.setMatrix4(mat4.fromTranslation(m, [1, 0, 1]));
+  t.move(1, 0, 1);
   t.render();
-  modelUniform.setMatrix4(mat4.fromTranslation(m, [2, 0, 2]));
+  t.move(1, 0, 1);
   t.render();
-  modelUniform.setMatrix4(mat4.fromTranslation(m, [3, 0, 3]));
+  t.move(1, 0, 1);
   t.render();
+  t.move(-3, 0, -3);
 });
 
 document.addEventListener('keypress', event => {
