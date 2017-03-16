@@ -129,7 +129,6 @@
       }
       throw new Error(`No VAO index available`);
     }
-
   }
 
   class VAO {
@@ -141,7 +140,7 @@
 
     createVBO() {
       this.bind();
-      return new VBO(gl);
+      return new VBO(this._gl, this);
     }
 
     bind() {
@@ -151,13 +150,14 @@
   }
 
   class VBO {
-    constructor(gl) {
+    constructor(gl, vao) {
       this._gl = gl;
       this._vao = vao;
       this._vbo = this._gl.createBuffer();
       this.bind();
       this._itemSize = 4;
-      this._type = this._gl.STATIC_DRAW;
+      this._type = this._gl.FLOAT;
+      this._usage = this._gl.STATIC_DRAW;
       this._normalize = false;
       this._stride = 0;
       this._offset = 0;
@@ -178,6 +178,15 @@
 
     setType(val) {
       this._type = val;
+      return this;
+    }
+
+    get usage() {
+      return this._usage;
+    }
+
+    setUsage(val) {
+      this._usage = val;
       return this;
     }
 
@@ -209,7 +218,7 @@
     }
 
     setData(val) {
-      this._gl.bufferData(gl.ARRAY_BUFFER, val, this._type);
+      this._gl.bufferData(gl.ARRAY_BUFFER, val, this._usage);
       return this;
     }
 
@@ -224,10 +233,20 @@
     }
   }
 
+  class SceneGraph {
+    constructor() {
+      this._root = new NullObject();
+    }
+
+    flatten() {
+      return this._root._flatten(mat4.create());
+    }
+  }
+
   class Entity {
     constructor() {
-      this._children = [];
       this._transform = mat4.create();
+      this._children = [];
     }
 
     get transform() {
@@ -258,6 +277,100 @@
       mat4.multiply(this._transform, r, this._transform);
       mat4.multiply(this._transform, t_out, this._transform);
       return this;
+    }
+
+    _flatten(transform) {
+      return Array.prototype.concat.apply(
+        [{
+          entity: this,
+          transform
+        }],
+        this._children.map(e => e.flatten(mat4.multiply(mat4.create(), this._transform, transform)))
+      );
+    }
+  }
+
+  class NullObject extends Entity {
+    constructor(...children) {
+      super();
+      this._children = children;
+    }
+  }
+
+  class RenderableEntity extends Entity {
+    constructor(vao, program, n) {
+      super();
+      this._vao = vao;
+      this._program = program;
+      this._n = n;
+    }
+
+    render() {
+      this._vao.bind()
+      this._program.activate();
+      this._vao._gl.drawArrays(gl.TRIANGLES, 0, this._n);
+    }
+  }
+
+  class TestTriangle extends RenderableEntity {
+    constructor(gl) {
+      const program = TestTriangle._initTestTriangleProgram(gl);
+      const vao = new VAO(gl);
+      const indexManager = new VAOIndexManager(vao);
+      program
+        .bindInVariable('in_vertex', indexManager.indexForName('in_vertex'))
+        .bindInVariable('in_color', indexManager.indexForName('in_color'))
+        .activate();
+
+      const vbo = vao.createVBO()
+        .bind()
+        .setData(new Float32Array([
+          0, 1, 0,
+          1, 0, 0, 1,
+          -1, -1, 0,
+          0, 1, 0, 1,
+          1, -1, 0,
+          0, 0, 1, 1,
+        ]))
+        .setType(gl.FLOAT)
+        .setNormalize(false);
+      vbo
+        .setItemSize(3)
+        .setStride(7*4)
+        .setOffset(0)
+        .bindToIndex(indexManager.indexForName('in_vertex'));
+      vbo
+        .setItemSize(4)
+        .setStride(7*4)
+        .setOffset(3*4)
+        .bindToIndex(indexManager.indexForName('in_color'));
+      super(vao, program, 3);
+    }
+
+    static _initTestTriangleProgram(gl) {
+      return new Program(gl)
+        .setVertexShader(`#version 300 es
+          in vec3 in_vertex;
+          in vec4 in_color;
+          uniform mat4 view;
+          uniform mat4 camera;
+          uniform mat4 model;
+          out vec4 color;
+
+          void main() {
+            gl_Position = view * camera * model * vec4(in_vertex, 1);
+            color = in_color;
+          }
+        `)
+        .setFragmentShader(`#version 300 es
+          precision highp float;
+          in vec4 color;
+          out vec4 out_color;
+
+          void main() {
+            out_color = color;
+          }
+        `);
     }
   }
 
@@ -398,6 +511,8 @@
     VAO,
     VAOIndexManager,
     Entity,
+    RenderableEntity,
+    TestTriangle,
     Camera,
     Helpers,
     KeyboardState,
