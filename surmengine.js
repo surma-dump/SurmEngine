@@ -235,18 +235,37 @@
 
   class SceneGraph {
     constructor() {
-      this._root = new NullObject();
+      this._root = new Entity('_root');
+    }
+
+    add(entity) {
+      this._root.add(entity);
+      return this;
     }
 
     flatten() {
       return this._root._flatten(mat4.create());
     }
+
+    visitAll(f) {
+      this._root._visitAll(f);
+    }
   }
 
   class Entity {
-    constructor() {
+    constructor(name) {
       this._transform = mat4.create();
       this._children = [];
+      this.name = name;
+    }
+
+    add(entity) {
+      this._children.push(entity);
+      return this;
+    }
+
+    get children() {
+      return this._children;
     }
 
     get transform() {
@@ -280,126 +299,28 @@
     }
 
     _flatten(transform) {
+      const newTransform = mat4.multiply(mat4.create(), transform, this._transform);
       return Array.prototype.concat.apply(
         [{
           entity: this,
-          transform
+          accumulatedTransform: newTransform
         }],
-        this._children.map(e => e.flatten(mat4.multiply(mat4.create(), this._transform, transform)))
+        this._children.map(e => e._flatten(newTransform))
       );
     }
-  }
 
-  class NullObject extends Entity {
-    constructor(...children) {
-      super();
-      this._children = children;
+    _visitAll(f) {
+      if(!f(this)) return;
+      this._children.forEach(entity => entity._visitAll(f));
     }
   }
 
-  class RenderableEntity extends Entity {
-    constructor(vao, program, n) {
-      super();
-      this._vao = vao;
-      this._program = program;
-      this._modelUniform = this._program.referenceUniform('model');
-      this._cameraUniform = this._program.referenceUniform('camera');
-      this._viewUniform = this._program.referenceUniform('view');
-
-      this._n = n;
-    }
-
-    get modelUniform() {
-      return this._modelUniform;
-    }
-
-    get viewUniform() {
-      return this._viewUniform;
-    }
-
-    get cameraUniform() {
-      return this._cameraUniform;
-    }
-
-    render() {
-      this._vao.bind()
-      this._program.activate();
-      this._modelUniform.setMatrix4(this._transform);
-      this._vao._gl.drawArrays(gl.TRIANGLES, 0, this._n);
-    }
-  }
-
-  class TestTriangle extends RenderableEntity {
-    constructor(gl) {
-      const program = TestTriangle._initTestTriangleProgram(gl);
-      const vao = new VAO(gl);
-      const indexManager = new VAOIndexManager(vao);
-      program
-        .bindInVariable('in_vertex', indexManager.indexForName('in_vertex'))
-        .bindInVariable('in_color', indexManager.indexForName('in_color'))
-        .activate();
-
-      const vbo = vao.createVBO()
-        .bind()
-        .setData(new Float32Array([
-          0, 1, 0,
-          1, 0, 0, 1,
-          -1, -1, 0,
-          0, 1, 0, 1,
-          1, -1, 0,
-          0, 0, 1, 1,
-        ]))
-        .setType(gl.FLOAT)
-        .setNormalize(false);
-      vbo
-        .setItemSize(3)
-        .setStride(7*4)
-        .setOffset(0)
-        .bindToIndex(indexManager.indexForName('in_vertex'));
-      vbo
-        .setItemSize(4)
-        .setStride(7*4)
-        .setOffset(3*4)
-        .bindToIndex(indexManager.indexForName('in_color'));
-      super(vao, program, 3);
-    }
-
-    static _initTestTriangleProgram(gl) {
-      return new Program(gl)
-        .setVertexShader(`#version 300 es
-          in vec3 in_vertex;
-          in vec4 in_color;
-          uniform mat4 view;
-          uniform mat4 camera;
-          uniform mat4 model;
-          out vec4 color;
-
-          void main() {
-            gl_Position = view * camera * model * vec4(in_vertex, 1);
-            color = in_color;
-          }
-        `)
-        .setFragmentShader(`#version 300 es
-          precision highp float;
-          in vec4 color;
-          out vec4 out_color;
-
-          void main() {
-            out_color = color;
-          }
-        `);
-    }
-  }
-
-  class Camera extends Entity {
+  class Camera {
     constructor() {
-      super();
-      this._dirty = true;
       this._aspectRatio = 1;
       this._fov = glMatrix.toRadian(60);
       this._near = 0.1;
       this._far = 1000;
-      this._upDirection = [0, 1, 0];
     }
 
     get aspectRatio() {
@@ -436,19 +357,6 @@
     setFarPlane(val) {
       this._far = val;
       return this;
-    }
-
-    setUpDirection(x, y, z) {
-      this._up = [x, y, z];
-      return this;
-    }
-
-    get upDirection() {
-      return this._upDirection;
-    }
-
-    get transform() {
-      return mat4.invert(mat4.create(), this._transform);
     }
 
     get viewMatrix() {
@@ -528,9 +436,8 @@
     Program,
     VAO,
     VAOIndexManager,
+    SceneGraph,
     Entity,
-    RenderableEntity,
-    TestTriangle,
     Camera,
     Helpers,
     KeyboardState,
