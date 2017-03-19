@@ -7,28 +7,40 @@ const program = new SurmEngine.Program(gl)
   .setVertexShader(`#version 300 es
     in vec3 in_vertex;
     in vec4 in_color;
+    in vec3 in_normal;
     uniform mat4 view;
     uniform mat4 camera;
     uniform mat4 model;
     out vec4 color;
+    out vec4 normal;
+    out vec4 light;
+
+    vec3 light_dir = vec3(0.0, 0.0, -80.0);
 
     void main() {
-      gl_Position = view * camera * model * vec4(in_vertex, 1);
+      mat4 normal_correction_matrix = transpose(inverse(model));
+      gl_Position = view * camera * model * vec4(in_vertex, 1.0);
       color = in_color;
+      normal = camera * model * vec4(in_normal, 0.0);
+      light = vec4(light_dir, 1.0);
     }
   `)
   .setFragmentShader(`#version 300 es
     precision highp float;
     in vec4 color;
+    in vec4 normal;
+    in vec4 light;
     out vec4 out_color;
 
     void main() {
-      out_color = color;
+      float lambert = clamp(abs(dot(normalize(light), normalize(normal))), 0.3, 1.0);
+      out_color = mix(vec4(0.0, 0.0, 0.0, 1.0), color, lambert);
     }
   `);
 program
   .bindInVariable('in_vertex', indexManager.indexForName('in_vertex'))
   .bindInVariable('in_color', indexManager.indexForName('in_color'))
+  .bindInVariable('in_normal', indexManager.indexForName('in_normal'))
   .activate();
 const viewUniform = program.referenceUniform('view');
 const cameraUniform = program.referenceUniform('camera');
@@ -39,24 +51,33 @@ const vbo = vao.createVBO()
   .setData(new Float32Array([
     0, 1, 0,
     1, 0, 0, 1,
+    0, 0, 1,
+
     -1, -1, 0,
     0, 1, 0, 1,
+    0, 0, 1,
+
     1, -1, 0,
     0, 0, 1, 1,
+    0, 0, 1,
   ]))
   .setType(gl.FLOAT)
   .setNormalize(false);
 vbo
   .setItemSize(3)
-  .setStride(7*4)
+  .setStride(10*4)
   .setOffset(0)
   .bindToIndex(indexManager.indexForName('in_vertex'));
 vbo
   .setItemSize(4)
-  .setStride(7*4)
+  .setStride(10*4)
   .setOffset(3*4)
   .bindToIndex(indexManager.indexForName('in_color'));
-
+vbo
+  .setItemSize(3)
+  .setStride(10*4)
+  .setOffset(7*4)
+  .bindToIndex(indexManager.indexForName('in_normal'));
 
 const camera = new SurmEngine.Entity('camera')
   .move(0, 10, 30)
