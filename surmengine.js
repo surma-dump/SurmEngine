@@ -388,6 +388,42 @@
     }
   }
 
+  class MouseController {
+    constructor(gl) {
+      this._gl = gl;
+      this._onMouseMove = this._onMouseMove.bind(this);
+      this._dx = this._dy = 0;
+    }
+
+    capture() {
+      this._gl.canvas.requestPointerLock();
+      this._gl.canvas.addEventListener('mousemove', this._onMouseMove);
+    }
+
+    free() {
+      this._gl.canvas.removeEventListener('mousemove', this._onMouseMove);
+      document.exitPointerLock();
+    }
+
+    delta() {
+      const delta = {
+        dx: this._dx,
+        dy: this._dy,
+      };
+      this._dx = this._dy = 0;
+      return delta;
+    }
+
+    isCaptured() {
+      return document.pointerLockElement === this._gl.canvas;
+    }
+
+    _onMouseMove(event) {
+      this._dx += event.movementX;
+      this._dy += event.movementY;
+    }
+  }
+
   const Helpers = {
     loop(f) {
       let last;
@@ -439,7 +475,8 @@
     SceneGraph,
     Entity,
     Camera,
-    Helpers,
     KeyboardState,
+    MouseController,
+    Helpers,
   };
 })(self);

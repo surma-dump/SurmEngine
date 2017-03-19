@@ -21,7 +21,7 @@ const program = new SurmEngine.Program(gl)
       mat4 normal_correction_matrix = transpose(inverse(model));
       gl_Position = view * camera * model * vec4(in_vertex, 1.0);
       color = in_color;
-      normal = camera * model * vec4(in_normal, 0.0);
+      normal = model * vec4(in_normal, 0.0);
       light = vec4(light_dir, 1.0);
     }
   `)
@@ -79,15 +79,19 @@ vbo
   .setOffset(7*4)
   .bindToIndex(indexManager.indexForName('in_normal'));
 
-const camera = new SurmEngine.Entity('camera')
-  .move(0, 10, 30)
-  .rotate([1, 0, 0], -20);
-camera.entity =
+const camera =
   new SurmEngine.Camera()
     .setAspectRatio(gl.canvas.width / gl.canvas.height)
     .setFov(30)
     .setNearPlane(0.1)
-    .setFarPlane(1000)
+    .setFarPlane(1000);
+const player = new SurmEngine.Entity('player')
+  .add(
+      new SurmEngine.Entity('player_camera')
+        .move(0, 10, 30)
+  );
+player.children[0].entity = camera;
+
 const scene = new SurmEngine.SceneGraph()
   .add(
     new SurmEngine.Entity('t1_move')
@@ -104,7 +108,7 @@ const scene = new SurmEngine.SceneGraph()
       .add(new SurmEngine.Entity('t3'))
       .move(4, 0, 4)
   )
-  .add(camera);
+  .add(player);
 
 function isTriangle(entity) {
   return /^t[0-9]+$/.test(entity.name);
@@ -118,14 +122,16 @@ scene.visitAll(entity => {
 gl.clearColor(0, 0, 0, 1);
 gl.enable(gl.DEPTH_TEST);
 SurmEngine.Helpers.autosize(gl, _ => {
-  camera.entity.setAspectRatio(gl.canvas.width / gl.canvas.height);
-  viewUniform.setMatrix4(camera.entity.viewMatrix);
+  camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
+  viewUniform.setMatrix4(camera.viewMatrix);
 });
-viewUniform.setMatrix4(camera.entity.viewMatrix);
+viewUniform.setMatrix4(camera.viewMatrix);
 
 const keyboard = new SurmEngine.KeyboardState();
+const mouse = new SurmEngine.MouseController(gl);
+
 const ctrl = SurmEngine.Helpers.loop(delta => {
-  handleKeyboard(keyboard, camera, delta);
+  handleInput(keyboard, mouse, player, delta);
   scene.visitAll(entity => {
     if(isTriangle(entity))
       entity.rotate([0, 1, 0], -80*delta/1000);
@@ -136,8 +142,11 @@ const ctrl = SurmEngine.Helpers.loop(delta => {
 
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   const flatScene = scene.flatten();
-  const cameraTransform = flatScene.find(entry => entry.entity.name === 'camera').entity.transform;
-  cameraUniform.setMatrix4(mat4.invert(mat4.create(), camera.transform));
+    {
+      const player = flatScene.find(entry => entry.entity.name === 'player');
+      const player_camera = flatScene.find(entry => entry.entity.name === 'player_camera');
+      cameraUniform.setMatrix4(mat4.invert(mat4.create(), player_camera.accumulatedTransform));
+    }
 
   flatScene.forEach(entry => {
     if(!isTriangle(entry.entity)) return;
@@ -148,46 +157,31 @@ const ctrl = SurmEngine.Helpers.loop(delta => {
 });
 
 const speed = 5;
-function handleKeyboard(keyboard, camera, delta) {
+function handleInput(keyboard, mouse, player, delta) {
+  const {dx, dy} = mouse.delta();
+  player.children[0].rotateAround([0, 0, 0], [1, 0, 0], -dy);
+  player.children[0].rotateAround([0, 0, 0], [0, 1, 0], -dx);
   const shift = keyboard.isDown('ShiftLeft') || keyboard.isDown('ShiftRight');
   for(let key of keyboard) {
-    if(!shift) {
-      switch(key) {
-        case 'KeyW':
-          camera.move(0, 0, -speed * delta/1000);
-          break;
-        case 'KeyA':
-          camera.move(-speed * delta/1000, 0, 0);
-          break;
-        case 'KeyS':
-          camera.move(0, 0, speed * delta/1000);
-          break;
-        case 'KeyD':
-          camera.move(speed * delta/1000, 0, 0);
-          break;
-        case 'Space':
-          camera.move(0, speed * delta/1000, 0);
-          break;
-      }
-    } else {
-      switch(key) {
-        case 'KeyW':
-          camera.rotate([1, 0, 0], 36*delta/1000);
-          break;
-        case 'KeyA':
-          camera.rotate([0, 1, 0], 36*delta/1000);
-          break;
-        case 'KeyS':
-          camera.rotate([1, 0, 0], -36*delta/1000);
-          break;
-        case 'KeyD':
-          camera.rotate([0, 1, 0], -36*delta/1000);
-          break;
-        case 'Space':
-          camera.move(0, -speed * delta/1000, 0);
-          break;
-
-      }
+    switch(key) {
+      case 'KeyW':
+        player.move(0, 0, -speed * delta/1000);
+        break;
+      case 'KeyA':
+        player.move(-speed * delta/1000, 0, 0);
+        break;
+      case 'KeyS':
+        player.move(0, 0, speed * delta/1000);
+        break;
+      case 'KeyD':
+        player.move(speed * delta/1000, 0, 0);
+        break;
+      case 'Space':
+        player.move(0, speed * delta/1000, 0);
+        break;
+      case 'Escape':
+        mouse.free();
+        break;
     }
   }
 }
@@ -199,4 +193,9 @@ document.addEventListener('keypress', event => {
   else
     ctrl.pause();
   console.log(`Paused: ${ctrl.isPaused}`);
+});
+
+canvas.addEventListener('click', event => {
+  if(mouse.isCaptured()) return;
+  mouse.capture();
 });
