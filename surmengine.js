@@ -247,6 +247,10 @@
       return this._root._flatten(mat4.create());
     }
 
+    find(f) {
+      return this._root.find(f);
+    }
+
     visitAll(f) {
       this._root._visitAll(f);
     }
@@ -298,6 +302,11 @@
       return this;
     }
 
+    find(f) {
+      if (f(this)) return this;
+      return this._children.reduce((r, c) => r || c.find(f), null);
+    }
+
     _flatten(transform) {
       const newTransform = mat4.multiply(mat4.create(), transform, this._transform);
       return Array.prototype.concat.apply(
@@ -310,7 +319,7 @@
     }
 
     _visitAll(f) {
-      if(!f(this)) return;
+      if (!f(this)) return;
       this._children.forEach(entity => entity._visitAll(f));
     }
   }
@@ -448,6 +457,10 @@
         },
         get isPaused() {
           return !cntinue;
+        },
+        manual(delta) {
+          if(!this.isPaused) return;
+          f(delta);
         }
       };
     },

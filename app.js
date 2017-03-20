@@ -79,18 +79,7 @@ vbo
   .setOffset(7*4)
   .bindToIndex(indexManager.indexForName('in_normal'));
 
-const camera =
-  new SurmEngine.Camera()
-    .setAspectRatio(gl.canvas.width / gl.canvas.height)
-    .setFov(30)
-    .setNearPlane(0.1)
-    .setFarPlane(1000);
-const player = new SurmEngine.Entity('player')
-  .add(
-      new SurmEngine.Entity('player_camera')
-        .move(0, 10, 30)
-  );
-player.children[0].entity = camera;
+
 
 const scene = new SurmEngine.SceneGraph()
   .add(
@@ -108,7 +97,29 @@ const scene = new SurmEngine.SceneGraph()
       .add(new SurmEngine.Entity('t3'))
       .move(4, 0, 4)
   )
-  .add(player);
+  .add(
+    new SurmEngine.Entity('player')
+      .add(
+        new SurmEngine.Entity('player_rot_y')
+          .add(
+            new SurmEngine.Entity('player_rot_x')
+              .add(
+                new SurmEngine.Entity('player_camera')
+                  .move(0, 0, 10)
+              )
+          )
+      )
+  );
+
+const camera =
+  new SurmEngine.Camera()
+    .setAspectRatio(gl.canvas.width / gl.canvas.height)
+    .setFov(90)
+    .setNearPlane(0.1)
+    .setFarPlane(1000);
+
+const player = scene.find(e => e.name === 'player');
+player.find(e => e.name === 'player_camera').entity = camera;
 
 function isTriangle(entity) {
   return /^t[0-9]+$/.test(entity.name);
@@ -129,7 +140,6 @@ viewUniform.setMatrix4(camera.viewMatrix);
 
 const keyboard = new SurmEngine.KeyboardState();
 const mouse = new SurmEngine.MouseController(gl);
-
 const ctrl = SurmEngine.Helpers.loop(delta => {
   handleInput(keyboard, mouse, player, delta);
   scene.visitAll(entity => {
@@ -142,11 +152,8 @@ const ctrl = SurmEngine.Helpers.loop(delta => {
 
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   const flatScene = scene.flatten();
-    {
-      const player = flatScene.find(entry => entry.entity.name === 'player');
-      const player_camera = flatScene.find(entry => entry.entity.name === 'player_camera');
-      cameraUniform.setMatrix4(mat4.invert(mat4.create(), player_camera.accumulatedTransform));
-    }
+  const player_camera = flatScene.find(entry => entry.entity.name === 'player_camera');
+  cameraUniform.setMatrix4(mat4.invert(mat4.create(), player_camera.accumulatedTransform));
 
   flatScene.forEach(entry => {
     if(!isTriangle(entry.entity)) return;
@@ -159,8 +166,9 @@ const ctrl = SurmEngine.Helpers.loop(delta => {
 const speed = 5;
 function handleInput(keyboard, mouse, player, delta) {
   const {dx, dy} = mouse.delta();
-  player.children[0].rotateAround([0, 0, 0], [1, 0, 0], -dy);
-  player.children[0].rotateAround([0, 0, 0], [0, 1, 0], -dx);
+  player.find(e => e.name === 'player_rot_y').rotate([0, 1, 0], -dx);
+  player.find(e => e.name === 'player_rot_x').rotate([1, 0, 0], -dy);
+
   const shift = keyboard.isDown('ShiftLeft') || keyboard.isDown('ShiftRight');
   for(let key of keyboard) {
     switch(key) {
@@ -176,9 +184,6 @@ function handleInput(keyboard, mouse, player, delta) {
       case 'KeyD':
         player.move(speed * delta/1000, 0, 0);
         break;
-      case 'Space':
-        player.move(0, speed * delta/1000, 0);
-        break;
       case 'Escape':
         mouse.free();
         break;
@@ -187,12 +192,18 @@ function handleInput(keyboard, mouse, player, delta) {
 }
 
 document.addEventListener('keypress', event => {
-  if(event.code !== 'KeyP') return;
-  if(ctrl.isPaused)
-    ctrl.play();
-  else
-    ctrl.pause();
-  console.log(`Paused: ${ctrl.isPaused}`);
+  switch(event.code) {
+    case 'KeyP':
+      if(ctrl.isPaused)
+        ctrl.play();
+      else
+        ctrl.pause();
+      console.log(`Paused: ${ctrl.isPaused}`);
+      break;
+    case 'KeyM':
+      ctrl.manual(16);
+      break;
+  }
 });
 
 canvas.addEventListener('click', event => {
