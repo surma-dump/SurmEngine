@@ -401,16 +401,19 @@
     constructor(gl) {
       this._gl = gl;
       this._onMouseMove = this._onMouseMove.bind(this);
+      this._onPointerLockChange = this._onPointerLockChange.bind(this);
       this._dx = this._dy = 0;
     }
 
     capture() {
       this._gl.canvas.requestPointerLock();
       this._gl.canvas.addEventListener('mousemove', this._onMouseMove);
+      document.addEventListener('pointerlockchange', this._onPointerLockChange);
     }
 
     free() {
       this._gl.canvas.removeEventListener('mousemove', this._onMouseMove);
+      document.removeEventListener('pointerlockchange', this._onPointerLockChange);
       document.exitPointerLock();
     }
 
@@ -430,6 +433,10 @@
     _onMouseMove(event) {
       this._dx += event.movementX;
       this._dy += event.movementY;
+    }
+
+    _onPointerLockChange() {
+      if (document.pointerLockElement !== this._gl.canvas) this.free();
     }
   }
 

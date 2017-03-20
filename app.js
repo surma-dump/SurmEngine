@@ -79,8 +79,6 @@ vbo
   .setOffset(7*4)
   .bindToIndex(indexManager.indexForName('in_normal'));
 
-
-
 const scene = new SurmEngine.SceneGraph()
   .add(
     new SurmEngine.Entity('t1_move')
@@ -184,9 +182,6 @@ function handleInput(keyboard, mouse, player, delta) {
       case 'KeyD':
         player.move(speed * delta/1000, 0, 0);
         break;
-      case 'Escape':
-        mouse.free();
-        break;
     }
   }
 }
@@ -196,8 +191,10 @@ document.addEventListener('keypress', event => {
     case 'KeyP':
       if(ctrl.isPaused)
         ctrl.play();
-      else
+      else {
         ctrl.pause();
+        mouse.free();
+      }
       console.log(`Paused: ${ctrl.isPaused}`);
       break;
     case 'KeyM':
