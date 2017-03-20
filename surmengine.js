@@ -471,10 +471,10 @@
         }
       };
     },
-    autosize(gl, f) {
+    autosize(gl, f, opts = {density: window.devicePixelRatio}) {
       const ro = new ResizeObserver(entries => {
-        const w = entries[0].contentRect.width * window.devicePixelRatio;
-        const h = entries[0].contentRect.height * window.devicePixelRatio;
+        const w = entries[0].contentRect.width * opts.density;
+        const h = entries[0].contentRect.height * opts.density;
         gl.canvas.width = w;
         gl.canvas.height = h;
         gl.viewport(0, 0, w, h);
