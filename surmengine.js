@@ -292,6 +292,11 @@
       return this;
     }
 
+    scale(f) {
+      mat4.scale(this._transform, this._transform, [f, f, f]);
+      return this;
+    }
+
     rotateAround(point, axis, deg) {
       // TODO: Optimize me
       const t_in = mat4.fromTranslation(mat4.create(), vec3.negate(vec3.create(), point));

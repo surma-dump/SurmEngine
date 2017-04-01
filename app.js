@@ -81,6 +81,9 @@ const camera =
 const scene = new SurmEngine.SceneGraph()
   .add(
     new SurmEngine.Entity('plane', vao)
+      .scale(100)
+      .rotate([1, 0, 0], 90)
+
   )
   .add(
     new SurmEngine.Entity('player')
@@ -94,6 +97,7 @@ const scene = new SurmEngine.SceneGraph()
               )
           )
       )
+      .move(0, 5, 0)
   );
 
 gl.clearColor(0, 0, 0, 1);
