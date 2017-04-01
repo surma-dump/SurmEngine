@@ -114,7 +114,7 @@
       this._bindings = {};
     }
 
-    indexForName(name) {
+    forName(name) {
       let slotId = -1;
       if(this._bindings.hasOwnProperty(name)) {
         return this._bindings[name];
@@ -257,10 +257,11 @@
   }
 
   class Entity {
-    constructor(name) {
+    constructor(name, entity = null) {
       this._transform = mat4.create();
       this._children = [];
       this.name = name;
+      this.entity = entity;
     }
 
     add(entity) {
@@ -440,8 +441,42 @@
     }
   }
 
-  const Helpers = {
-    loop(f) {
+  class Mesh {
+    static plane(opts = {subdivisions: 10}) {
+      const gap = 2 / opts.subdivisions;
+      const numCells = opts.subdivisions * opts.subdivisions;
+      const numTriangles = numCells * 2;
+      const numPoints = numTriangles * 3;
+      const points = new Float32Array(numPoints * 3); // 3 coordinates
+      for(let x = 0; x < opts.subdivisions; x++) {
+        for(let y = 0; y < opts.subdivisions; y++) {
+          points[(y * opts.subdivisions + x) * 18 +  0] = -1 + gap * x;
+          points[(y * opts.subdivisions + x) * 18 +  1] = -1 + gap * y;
+          points[(y * opts.subdivisions + x) * 18 +  2] = 0;
+          points[(y * opts.subdivisions + x) * 18 +  3] = -1 + gap * (x+1);
+          points[(y * opts.subdivisions + x) * 18 +  4] = -1 + gap * (y+1);
+          points[(y * opts.subdivisions + x) * 18 +  5] = 0;
+          points[(y * opts.subdivisions + x) * 18 +  6] = -1 + gap * x;
+          points[(y * opts.subdivisions + x) * 18 +  7] = -1 + gap * (y+1);
+          points[(y * opts.subdivisions + x) * 18 +  8] = 0;
+
+          points[(y * opts.subdivisions + x) * 18 +  9] = -1 + gap * x;
+          points[(y * opts.subdivisions + x) * 18 + 10] = -1 + gap * y;
+          points[(y * opts.subdivisions + x) * 18 + 11] = 0;
+          points[(y * opts.subdivisions + x) * 18 + 12] = -1 + gap * (x+1);
+          points[(y * opts.subdivisions + x) * 18 + 13] = -1 + gap * (y+1);
+          points[(y * opts.subdivisions + x) * 18 + 14] = 0;
+          points[(y * opts.subdivisions + x) * 18 + 15] = -1 + gap * (x+1);
+          points[(y * opts.subdivisions + x) * 18 + 16] = -1 + gap * y;
+          points[(y * opts.subdivisions + x) * 18 + 17] = 0;
+        }
+      }
+      return points;
+    }
+  }
+
+  class Helpers {
+    static loop(f) {
       let last;
       let cntinue = true;
       function start() {
@@ -470,8 +505,9 @@
           f(delta);
         }
       };
-    },
-    autosize(gl, f, opts = {density: window.devicePixelRatio}) {
+    }
+
+    static autosize(gl, f, opts = {density: window.devicePixelRatio}) {
       const ro = new ResizeObserver(entries => {
         const w = entries[0].contentRect.width * opts.density;
         const h = entries[0].contentRect.height * opts.density;
@@ -481,8 +517,9 @@
         f && f();
       });
       ro.observe(gl.canvas);
-    },
-    logMatrix(m) {
+    }
+
+    static logMatrix(m) {
       const t = mat4.transpose(mat4.create(), m);
       console.table([0, 1, 2, 3].map(i => t.slice(i*4, (i+1)*4)));
     }
@@ -497,6 +534,7 @@
     Camera,
     KeyboardState,
     MouseController,
+    Mesh,
     Helpers,
   };
 })(self);
