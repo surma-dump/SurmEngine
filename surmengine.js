@@ -282,8 +282,8 @@
       return this;
     }
 
-    move(x, y, z) {
-      mat4.translate(this._transform, this._transform, vec3.fromValues(x, y, z));
+    move(v) {
+      mat4.translate(this._transform, this._transform, v);
       return this;
     }
 

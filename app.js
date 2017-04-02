@@ -83,21 +83,18 @@ const scene = new SurmEngine.SceneGraph()
     new SurmEngine.Entity('plane', vao)
       .scale(100)
       .rotate([1, 0, 0], 90)
-
   )
   .add(
-    new SurmEngine.Entity('player')
+    new SurmEngine.Entity('player_move')
       .add(
         new SurmEngine.Entity('player_rot_y')
           .add(
             new SurmEngine.Entity('player_rot_x')
               .add(
                 new SurmEngine.Entity('player_camera', camera)
-                  .move(0, 0, 10)
               )
           )
       )
-      .move(0, 5, 0)
   );
 
 gl.clearColor(0, 0, 0, 1);
@@ -108,17 +105,16 @@ SurmEngine.Helpers.autosize(gl, _ => {
 });
 viewUniform.setMatrix4(camera.viewMatrix);
 
-const player = scene.find(e => e.name === 'player');
 const keyboard = new SurmEngine.KeyboardState();
 const mouse = new SurmEngine.MouseController(gl);
-const camInvert = mat4.create();
+const scratch = mat4.create();
 const ctrl = SurmEngine.Helpers.loop(delta => {
-  handleInput(keyboard, mouse, player, delta);
+  handleInput(keyboard, mouse, delta);
 
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   const flatScene = scene.flatten();
   const player_camera = flatScene.find(entry => entry.entity.name === 'player_camera');
-  cameraUniform.setMatrix4(mat4.invert(camInvert, player_camera.accumulatedTransform));
+  cameraUniform.setMatrix4(mat4.invert(scratch, player_camera.accumulatedTransform));
 
   flatScene.forEach(entry => {
     if(!(entry.entity.entity instanceof SurmEngine.VAO)) return;
@@ -128,27 +124,33 @@ const ctrl = SurmEngine.Helpers.loop(delta => {
   });
 });
 
-const speed = 5;
+let speed = 5;
 let fov = 90;
-function handleInput(keyboard, mouse, player, delta) {
+const player_rot_x = scene.find(e => e.name === 'player_rot_x');
+const player_rot_y = scene.find(e => e.name === 'player_rot_y');
+const player_move = scene.find(e => e.name === 'player_move');
+let move = new Float32Array(3);
+player_move.move([0, 5, 0]);
+function handleInput(keyboard, mouse, delta) {
   const {dx, dy} = mouse.delta();
-  player.find(e => e.name === 'player_rot_y').rotate([0, 1, 0], -dx);
-  player.find(e => e.name === 'player_rot_x').rotate([1, 0, 0], -dy);
+  player_rot_y.rotate([0, 1, 0], -dx);
+  player_rot_x.rotate([1, 0, 0], -dy);
 
   const shift = keyboard.isDown('ShiftLeft') || keyboard.isDown('ShiftRight');
   for(let key of keyboard) {
+    move.fill(0);
     switch(key) {
       case 'KeyW':
-        player.move(0, 0, -speed * delta/1000);
+        move[2] = -speed * delta/1000;
         break;
       case 'KeyA':
-        player.move(-speed * delta/1000, 0, 0);
+        move[0] = -speed * delta/1000;
         break;
       case 'KeyS':
-        player.move(0, 0, speed * delta/1000);
+        move[2] = speed * delta/1000;
         break;
       case 'KeyD':
-        player.move(speed * delta/1000, 0, 0);
+        move[0] = speed * delta/1000;
         break;
       case 'Comma':
         fov--;
@@ -161,6 +163,7 @@ function handleInput(keyboard, mouse, player, delta) {
         viewUniform.setMatrix4(camera.viewMatrix);
         break;
     }
+    player_move.move(vec3.transformMat4(move, move, player_rot_y.transform));
   }
 }
 
