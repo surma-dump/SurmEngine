@@ -80,7 +80,7 @@ const camera =
 
 const scene = new SurmEngine.SceneGraph()
   .add(
-    new SurmEngine.Entity('plane', vao)
+    new SurmEngine.Entity('plane', {numPoints: planeMesh.numPoints, vao})
       .scale(100)
       .rotate([1, 0, 0], 90)
   )
@@ -117,10 +117,10 @@ const ctrl = SurmEngine.Helpers.loop(delta => {
   cameraUniform.setMatrix4(mat4.invert(scratch, player_camera.accumulatedTransform));
 
   flatScene.forEach(entry => {
-    if(!(entry.entity.entity instanceof SurmEngine.VAO)) return;
+    if(!(entry.entity.entity && 'vao' in entry.entity.entity)) return;
     modelUniform.setMatrix4(entry.accumulatedTransform);
-    entry.entity.entity.bind();
-    gl.drawArrays(gl.TRIANGLES, 0, planeMesh.numPoints);
+    entry.entity.entity.vao.bind();
+    gl.drawArrays(gl.TRIANGLES, 0, entry.entity.entity.numPoints);
   });
 });
 
