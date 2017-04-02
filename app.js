@@ -49,15 +49,15 @@ const modelUniform = program.referenceUniform('model');
 const planeMesh = SurmEngine.Mesh.plane({subdivisions: 10});
 vao.createVBO()
   .bind()
-  .setData(planeMesh)
+  .setData(planeMesh.data)
   .setItemSize(3)
   .bindToIndex(indexManager.forName('in_vertex'));
 
 vao.createVBO()
   .bind()
   .setData(
-    new Float32Array(planeMesh.length/3*4)
-      .map((_, idx) => idx % 4 === 3?1:(idx*4/planeMesh.length/3/2))
+    new Float32Array(planeMesh.numPoints * 4)
+      .map((_, idx) => idx % 4 === 3?1:(idx/4/planeMesh.numPoints))
   )
   .setItemSize(4)
   .bindToIndex(indexManager.forName('in_color'));
@@ -65,7 +65,7 @@ vao.createVBO()
 vao.createVBO()
   .bind()
   .setData(
-    new Float32Array(planeMesh.length)
+    new Float32Array(planeMesh.numPoints * 3)
       .map((_, idx) => idx % 3 === 2?1:0)
   )
   .setItemSize(3)
@@ -120,7 +120,7 @@ const ctrl = SurmEngine.Helpers.loop(delta => {
     if(!(entry.entity.entity instanceof SurmEngine.VAO)) return;
     modelUniform.setMatrix4(entry.accumulatedTransform);
     entry.entity.entity.bind();
-    gl.drawArrays(gl.TRIANGLES, 0, planeMesh.length/3);
+    gl.drawArrays(gl.TRIANGLES, 0, planeMesh.numPoints);
   });
 });
 

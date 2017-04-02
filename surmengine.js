@@ -452,31 +452,35 @@
       const numCells = opts.subdivisions * opts.subdivisions;
       const numTriangles = numCells * 2;
       const numPoints = numTriangles * 3;
-      const points = new Float32Array(numPoints * 3); // 3 coordinates
+      const data = new Float32Array(numPoints * 3); // 3 coordinates
       for(let x = 0; x < opts.subdivisions; x++) {
         for(let y = 0; y < opts.subdivisions; y++) {
-          points[(y * opts.subdivisions + x) * 18 +  0] = -1 + gap * x;
-          points[(y * opts.subdivisions + x) * 18 +  1] = -1 + gap * y;
-          points[(y * opts.subdivisions + x) * 18 +  2] = 0;
-          points[(y * opts.subdivisions + x) * 18 +  3] = -1 + gap * (x+1);
-          points[(y * opts.subdivisions + x) * 18 +  4] = -1 + gap * (y+1);
-          points[(y * opts.subdivisions + x) * 18 +  5] = 0;
-          points[(y * opts.subdivisions + x) * 18 +  6] = -1 + gap * x;
-          points[(y * opts.subdivisions + x) * 18 +  7] = -1 + gap * (y+1);
-          points[(y * opts.subdivisions + x) * 18 +  8] = 0;
+          data[(y * opts.subdivisions + x) * 18 +  0] = -1 + gap * x;
+          data[(y * opts.subdivisions + x) * 18 +  1] = -1 + gap * y;
+          data[(y * opts.subdivisions + x) * 18 +  2] = 0;
+          data[(y * opts.subdivisions + x) * 18 +  3] = -1 + gap * (x+1);
+          data[(y * opts.subdivisions + x) * 18 +  4] = -1 + gap * (y+1);
+          data[(y * opts.subdivisions + x) * 18 +  5] = 0;
+          data[(y * opts.subdivisions + x) * 18 +  6] = -1 + gap * x;
+          data[(y * opts.subdivisions + x) * 18 +  7] = -1 + gap * (y+1);
+          data[(y * opts.subdivisions + x) * 18 +  8] = 0;
 
-          points[(y * opts.subdivisions + x) * 18 +  9] = -1 + gap * x;
-          points[(y * opts.subdivisions + x) * 18 + 10] = -1 + gap * y;
-          points[(y * opts.subdivisions + x) * 18 + 11] = 0;
-          points[(y * opts.subdivisions + x) * 18 + 12] = -1 + gap * (x+1);
-          points[(y * opts.subdivisions + x) * 18 + 13] = -1 + gap * (y+1);
-          points[(y * opts.subdivisions + x) * 18 + 14] = 0;
-          points[(y * opts.subdivisions + x) * 18 + 15] = -1 + gap * (x+1);
-          points[(y * opts.subdivisions + x) * 18 + 16] = -1 + gap * y;
-          points[(y * opts.subdivisions + x) * 18 + 17] = 0;
+          data[(y * opts.subdivisions + x) * 18 +  9] = -1 + gap * x;
+          data[(y * opts.subdivisions + x) * 18 + 10] = -1 + gap * y;
+          data[(y * opts.subdivisions + x) * 18 + 11] = 0;
+          data[(y * opts.subdivisions + x) * 18 + 12] = -1 + gap * (x+1);
+          data[(y * opts.subdivisions + x) * 18 + 13] = -1 + gap * (y+1);
+          data[(y * opts.subdivisions + x) * 18 + 14] = 0;
+          data[(y * opts.subdivisions + x) * 18 + 15] = -1 + gap * (x+1);
+          data[(y * opts.subdivisions + x) * 18 + 16] = -1 + gap * y;
+          data[(y * opts.subdivisions + x) * 18 + 17] = 0;
         }
       }
-      return points;
+      return {
+        numPoints,
+        numTriangles,
+        data,
+      };
     }
   }
 
