@@ -8,7 +8,7 @@
     'Mesh',
     'Program',
     'SceneGraph',
-    'VAO'
+    'VAO',
   ].reduce((acc, m) => Object.assign(acc, {[m]: SystemJS.import(`/surmengine/${m}.js`).then(m => m)}), {});
   const canvas = document.querySelector('canvas');
   const gl = canvas.getContext('webgl2');
@@ -144,12 +144,12 @@
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const flatScene = scene.flatten();
-    const player_camera = flatScene.find(entry => entry.entity.name === 'player_camera');
+    const playerCamera = flatScene.find(entry => entry.entity.name === 'player_camera');
 
     flatScene.forEach(entry => {
       if(!(entry.entity.entity && 'idx' in entry.entity.entity)) return;
 
-      cameraUniform.setMatrix4(mat4.invert(scratch, player_camera.accumulatedTransform));
+      cameraUniform.setMatrix4(mat4.invert(scratch, playerCamera.accumulatedTransform));
       modelUniform.setMatrix4(entry.accumulatedTransform);
       gl.drawArrays(gl.TRIANGLES, entry.entity.entity.idx, entry.entity.entity.numPoints);
     });
@@ -157,15 +157,15 @@
 
   let speed = 5;
   let fov = 30;
-  const player_rot_x = scene.find(e => e.name === 'player_rot_x');
-  const player_rot_y = scene.find(e => e.name === 'player_rot_y');
-  const player_move = scene.find(e => e.name === 'player_move');
+  const playerRotX = scene.find(e => e.name === 'player_rot_x');
+  const playerRotY = scene.find(e => e.name === 'player_rot_y');
+  const playerMove = scene.find(e => e.name === 'player_move');
   let move = new Float32Array(3);
-  player_move.move([0, 5, 3]);
+  playerMove.move([0, 5, 3]);
   function handleInput(keyboard, mouse, delta) {
     const {dx, dy} = mouse.delta();
-    player_rot_y.rotate([0, 1, 0], -dx);
-    player_rot_x.rotate([1, 0, 0], -dy);
+    playerRotY.rotate([0, 1, 0], -dx);
+    playerRotX.rotate([1, 0, 0], -dy);
 
     for(let key of keyboard) {
       move.fill(0);
@@ -195,12 +195,12 @@
           viewUniform.setMatrix4(camera.viewMatrix);
           break;
         case 'Period':
-          fov++
+          fov++;
           camera.setFov(fov);
           viewUniform.setMatrix4(camera.viewMatrix);
           break;
       }
-      player_move.move(vec3.transformMat4(move, move, player_rot_y.transform));
+      playerMove.move(vec3.transformMat4(move, move, playerRotY.transform));
     }
   }
 

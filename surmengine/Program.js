@@ -8,7 +8,7 @@ module.exports = (async function() {
     }
 
     _compileShader(type, source) {
-      const shader = this._gl.createShader(type) ;
+      const shader = this._gl.createShader(type);
       this._gl.shaderSource(shader, source);
       this._gl.compileShader(shader);
       if (!this._gl.getShaderParameter(shader, this._gl.COMPILE_STATUS)) {
@@ -101,4 +101,4 @@ module.exports = (async function() {
   }
 
   return {Program};
-})()
+})();

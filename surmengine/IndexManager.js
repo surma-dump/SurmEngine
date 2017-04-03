@@ -5,7 +5,6 @@ module.exports = (async function() {
     }
 
     forName(name) {
-      let slotId = -1;
       if(this._bindings.hasOwnProperty(name)) {
         return this._bindings[name];
       }

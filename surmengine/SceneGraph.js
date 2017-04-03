@@ -67,12 +67,12 @@ module.exports = (async function() {
 
     rotateAround(point, axis, deg) {
       // TODO: Optimize me
-      const t_in = mat4.fromTranslation(mat4.create(), vec3.negate(vec3.create(), point));
-      const t_out = mat4.fromTranslation(mat4.create(), point);
+      const tIn = mat4.fromTranslation(mat4.create(), vec3.negate(vec3.create(), point));
+      const tOut = mat4.fromTranslation(mat4.create(), point);
       const r = mat4.fromRotation(mat4.create(), glMatrix.toRadian(deg), axis);
-      mat4.multiply(this._transform, t_in, this._transform);
+      mat4.multiply(this._transform, tIn, this._transform);
       mat4.multiply(this._transform, r, this._transform);
-      mat4.multiply(this._transform, t_out, this._transform);
+      mat4.multiply(this._transform, tOut, this._transform);
       return this;
     }
 
@@ -86,7 +86,7 @@ module.exports = (async function() {
       return Array.prototype.concat.apply(
         [{
           entity: this,
-          accumulatedTransform: newTransform
+          accumulatedTransform: newTransform,
         }],
         this._children.map(e => e._flatten(newTransform))
       );

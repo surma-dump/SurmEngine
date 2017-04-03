@@ -28,7 +28,7 @@ module.exports = (async function() {
         manual(delta) {
           if(!this.isPaused) return;
           f(delta);
-        }
+        },
       };
     }
 

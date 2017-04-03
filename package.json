@@ -1,0 +1,24 @@
+{
+  "name": "surmengine",
+  "version": "0.0.1",
+  "description": "Super-lightweight wrapper library around WebGL2",
+  "dependencies": {
+  },
+  "devDependencies": {
+    "eslint": "^3.19.0",
+    "eslint-config-google": "^0.7.1"
+  },
+  "scripts": {
+    "test": "eslint ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/surma/surmengine.git"
+  },
+  "author": "Surma <surma@surma.link>",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/surma/surmengine/issues"
+  },
+  "homepage": "https://github.com/surma/surmengine#readme"
+}
