@@ -11,6 +11,19 @@
   }
 </style>
 <canvas></canvas>
-<script src="gl-matrix.js"></script>
-<script src="surmengine.js"></script>
-<script src="app.js"></script>
+<script src="system.js"></script>
+<script>
+  SystemJS.config({
+    meta: {
+      'gl-matrix.js': {
+        format: 'global',
+        exports: ['glMatrix', 'mat4', 'vec4', 'vec3', 'quat'],
+      },
+      '*': {
+        format: 'cjs',
+      },
+    },
+  })
+  SystemJS.import('app.js');
+</script>
+
