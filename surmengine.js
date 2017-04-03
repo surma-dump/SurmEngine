@@ -30,7 +30,6 @@
       this._vertexShaderSource = source;
       this._vertexShader = newShader;
       this._gl.attachShader(this._program, this._vertexShader);
-      this._dirty = true;
       return this;
     }
 
@@ -47,7 +46,6 @@
       this._fragmentShaderSource = source;
       this._fragmentShader = newShader;
       this._gl.attachShader(this._program, this._fragmentShader);
-      this._dirty = true;
       return this;
     }
 
@@ -66,13 +64,10 @@
     }
 
     referenceUniform(name) {
-      this.link();
       return new Uniform(this._gl, this._gl.getUniformLocation(this._program, name));
     }
 
     link() {
-      if(!this._dirty) return;
-
       this._gl.linkProgram(this._program);
       if(!this._gl.getProgramParameter(this._program, this._gl.LINK_STATUS)) {
         throw new Error(`Couldn’t link program: ${this._gl.getProgramInfoLog(this._program)}`);
@@ -81,13 +76,10 @@
       if(!this._gl.getProgramParameter(this._program, this._gl.VALIDATE_STATUS)) {
         throw new Error(`Couldn’t validate program: ${this._gl.getProgramInfoLog(this._program)}`);
       }
-      this._dirty = false;
       return this;
     }
 
     activate() {
-      if(!this._dirty) return;
-      this.link();
       this._gl.useProgram(this._program);
       return this;
     }
@@ -108,9 +100,8 @@
     }
   }
 
-  class VAOIndexManager {
-    constructor(vao) {
-      this._vao = vao;
+  class IndexManager {
+    constructor() {
       this._bindings = {};
     }
 
@@ -124,10 +115,10 @@
 
     _freeIndex() {
       const usedKeys = Object.values(this._bindings);
-      for(let i = 0; i < this._vao._gl.MAX_VERTEX_ATTRIBS; i++) {
+      for(let i = 0; i < 32; i++) {
         if(!usedKeys.includes(i)) return i;
       }
-      throw new Error(`No VAO index available`);
+      throw new Error(`No index available`);
     }
   }
 
@@ -447,7 +438,7 @@
   }
 
   class Mesh {
-    static plane(opts = {subdivisions: 10}) {
+    static xyPlane(opts = {subdivisions: 1}) {
       const gap = 2 / opts.subdivisions;
       const numCells = opts.subdivisions * opts.subdivisions;
       const numTriangles = numCells * 2;
@@ -479,6 +470,37 @@
       return {
         numPoints,
         numTriangles,
+        data,
+      };
+    }
+
+    static normalizedCubeSphere(opts = {subdivisions: 10}) {
+      const xyPlane = Mesh.xyPlane(opts);
+      const data = new Float32Array(xyPlane.data.length * 6);
+      data.set(xyPlane.data);
+      for(let i = 1; i <= 6; i++)
+        data.copyWithin(i*xyPlane.data.length, 0, xyPlane.data.length);
+
+      const transforms = [
+        mat4.fromRotationTranslation(mat4.create(), quat.setAxisAngle(quat.create(), [0, 1, 0], glMatrix.toRadian(90)), [1, 0, 0]),
+        mat4.fromRotationTranslation(mat4.create(), quat.setAxisAngle(quat.create(), [0, 1, 0], glMatrix.toRadian(-90)), [-1, 0, 0]),
+        mat4.fromRotationTranslation(mat4.create(), quat.setAxisAngle(quat.create(), [1, 0, 0], glMatrix.toRadian(-90)), [0, 1, 0]),
+        mat4.fromRotationTranslation(mat4.create(), quat.setAxisAngle(quat.create(), [1, 0, 0], glMatrix.toRadian(90)), [0, -1, 0]),
+        mat4.fromRotationTranslation(mat4.create(), quat.setAxisAngle(quat.create(), [0, 1, 0], glMatrix.toRadian(0)), [0, 0, 1]),
+        mat4.fromRotationTranslation(mat4.create(), quat.setAxisAngle(quat.create(), [0, 1, 0], glMatrix.toRadian(180)), [0, 0, -1]),
+      ];
+      transforms.forEach((m, idx) => {
+        const view = new Float32Array(data.buffer, idx * xyPlane.data.byteLength, xyPlane.data.length);
+        for(let i = 0; i < xyPlane.data.length; i+=3) {
+          const v = new Float32Array(view.buffer, view.byteOffset + i * 4, 3);
+          vec3.transformMat4(v, v, m);
+          vec3.normalize(v, v);
+        }
+      });
+
+      return {
+        numPoints: data.length / 3,
+        numTriangles: data.length / 9,
         data,
       };
     }
@@ -537,7 +559,7 @@
   module.SurmEngine = {
     Program,
     VAO,
-    VAOIndexManager,
+    IndexManager,
     SceneGraph,
     Entity,
     Camera,

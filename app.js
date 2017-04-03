@@ -2,7 +2,7 @@ const canvas = document.querySelector('canvas');
 const gl = canvas.getContext('webgl2');
 
 const vao = new SurmEngine.VAO(gl);
-const indexManager = new SurmEngine.VAOIndexManager(vao);
+const indexManager = new SurmEngine.IndexManager();
 const program = new SurmEngine.Program(gl)
   .setVertexShader(`#version 300 es
     in vec3 in_vertex;
@@ -33,20 +33,23 @@ const program = new SurmEngine.Program(gl)
     out vec4 out_color;
 
     void main() {
-      float lambert = clamp(abs(dot(normalize(light), normalize(normal))), 0.3, 1.0);
+      float lambert = clamp(dot(normalize(light), normalize(-normal)), 0.05, 1.0);
       out_color = mix(vec4(0.0, 0.0, 0.0, 1.0), color, lambert);
     }
-  `);
-program
+  `)
   .bindInVariable('in_vertex', indexManager.forName('in_vertex'))
   .bindInVariable('in_color', indexManager.forName('in_color'))
   .bindInVariable('in_normal', indexManager.forName('in_normal'))
+  .link()
   .activate();
+
+
 const viewUniform = program.referenceUniform('view');
 const cameraUniform = program.referenceUniform('camera');
 const modelUniform = program.referenceUniform('model');
 
-const planeMesh = SurmEngine.Mesh.plane({subdivisions: 10});
+// const planeMesh = SurmEngine.Mesh.xyPlane({subdivisions: 10});
+const planeMesh = SurmEngine.Mesh.normalizedCubeSphere({subdivisions: 10});
 vao.createVBO()
   .bind()
   .setData(planeMesh.data)
@@ -55,19 +58,24 @@ vao.createVBO()
 
 vao.createVBO()
   .bind()
+  // .setData(
+  //   new Float32Array(planeMesh.numPoints * 4)
+  //     .map((_, idx) => idx % 4 === 3?1:(idx/4/planeMesh.numPoints))
+  // )
   .setData(
-    new Float32Array(planeMesh.numPoints * 4)
-      .map((_, idx) => idx % 4 === 3?1:(idx/4/planeMesh.numPoints))
+    new Float32Array(planeMesh.numPoints * 4).fill(1)
   )
   .setItemSize(4)
   .bindToIndex(indexManager.forName('in_color'));
 
 vao.createVBO()
   .bind()
-  .setData(
-    new Float32Array(planeMesh.numPoints * 3)
-      .map((_, idx) => idx % 3 === 2?1:0)
-  )
+  // .setData(
+  //   new Float32Array(planeMesh.numPoints * 3)
+  //     .map((_, idx) => idx % 3 === 2?1:0)
+  // )
+  .setNormalize(true)
+  .setData(planeMesh.data)
   .setItemSize(3)
   .bindToIndex(indexManager.forName('in_normal'));
 
@@ -80,9 +88,10 @@ const camera =
 
 const scene = new SurmEngine.SceneGraph()
   .add(
-    new SurmEngine.Entity('plane', {numPoints: planeMesh.numPoints, vao})
-      .scale(100)
-      .rotate([1, 0, 0], 90)
+    new SurmEngine.Entity('plane', {numPoints: planeMesh.numPoints, idx: 0})
+      // .scale(100)
+      // .rotate([1, 0, 0], 90)
+      .move([0, 5, 0])
   )
   .add(
     new SurmEngine.Entity('player_move')
@@ -99,6 +108,8 @@ const scene = new SurmEngine.SceneGraph()
 
 gl.clearColor(0, 0, 0, 1);
 gl.enable(gl.DEPTH_TEST);
+// gl.enable(gl.CULL_FACE);
+// gl.cullFace(gl.BACK);
 SurmEngine.Helpers.autosize(gl, _ => {
   camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
   viewUniform.setMatrix4(camera.viewMatrix);
@@ -114,23 +125,23 @@ const ctrl = SurmEngine.Helpers.loop(delta => {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   const flatScene = scene.flatten();
   const player_camera = flatScene.find(entry => entry.entity.name === 'player_camera');
-  cameraUniform.setMatrix4(mat4.invert(scratch, player_camera.accumulatedTransform));
 
   flatScene.forEach(entry => {
-    if(!(entry.entity.entity && 'vao' in entry.entity.entity)) return;
+    if(!(entry.entity.entity && 'idx' in entry.entity.entity)) return;
+
+    cameraUniform.setMatrix4(mat4.invert(scratch, player_camera.accumulatedTransform));
     modelUniform.setMatrix4(entry.accumulatedTransform);
-    entry.entity.entity.vao.bind();
-    gl.drawArrays(gl.TRIANGLES, 0, entry.entity.entity.numPoints);
+    gl.drawArrays(gl.TRIANGLES, entry.entity.entity.idx, entry.entity.entity.numPoints);
   });
 });
 
 let speed = 5;
-let fov = 90;
+let fov = 30;
 const player_rot_x = scene.find(e => e.name === 'player_rot_x');
 const player_rot_y = scene.find(e => e.name === 'player_rot_y');
 const player_move = scene.find(e => e.name === 'player_move');
 let move = new Float32Array(3);
-player_move.move([0, 5, 0]);
+player_move.move([0, 5, 3]);
 function handleInput(keyboard, mouse, delta) {
   const {dx, dy} = mouse.delta();
   player_rot_y.rotate([0, 1, 0], -dx);
@@ -151,6 +162,9 @@ function handleInput(keyboard, mouse, delta) {
         break;
       case 'KeyD':
         move[0] = speed * delta/1000;
+        break;
+      case 'Space':
+        move[1] = (shift?-1:1) * speed * delta/1000;
         break;
       case 'Comma':
         fov--;
