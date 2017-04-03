@@ -1,4 +1,6 @@
 (async function() {
+  const vertexShader = fetch('/vertex.glsl').then(r => r.text());
+  const fragmentShader = fetch('/fragment.glsl').then(r => r.text());
   const glMatrixModule = SystemJS.import('/gl-matrix.js');
   const modules = [
     'Camera',
@@ -9,6 +11,7 @@
     'Program',
     'SceneGraph',
     'VAO',
+    // 'VBOPackager',
   ].reduce((acc, m) => Object.assign(acc, {[m]: SystemJS.import(`/surmengine/${m}.js`).then(m => m)}), {});
   const canvas = document.querySelector('canvas');
   const gl = canvas.getContext('webgl2');
@@ -16,44 +19,14 @@
   const {IndexManager} = await modules['IndexManager'];
   const {Program} = await modules['Program'];
   const vao = new VAO(gl);
+  // const vao2 = new VAO(gl);
   const indexManager = new IndexManager();
   const program = new Program(gl)
-    .setVertexShader(`#version 300 es
-      in vec3 in_vertex;
-      in vec4 in_color;
-      in vec3 in_normal;
-      uniform mat4 view;
-      uniform mat4 camera;
-      uniform mat4 model;
-      out vec4 color;
-      out vec4 normal;
-      out vec4 light;
-
-      vec3 light_dir = vec3(0.0, 0.0, -80.0);
-
-      void main() {
-        mat4 normal_correction_matrix = transpose(inverse(model));
-        gl_Position = view * camera * model * vec4(in_vertex, 1.0);
-        color = in_color;
-        normal = model * vec4(in_normal, 0.0);
-        light = vec4(light_dir, 1.0);
-      }
-    `)
-    .setFragmentShader(`#version 300 es
-      precision highp float;
-      in vec4 color;
-      in vec4 normal;
-      in vec4 light;
-      out vec4 out_color;
-
-      void main() {
-        float lambert = clamp(dot(normalize(light), normalize(-normal)), 0.05, 1.0);
-        out_color = mix(vec4(0.0, 0.0, 0.0, 1.0), color, lambert);
-      }
-    `)
-    .bindInVariable('in_vertex', indexManager.forName('in_vertex'))
-    .bindInVariable('in_color', indexManager.forName('in_color'))
-    .bindInVariable('in_normal', indexManager.forName('in_normal'))
+    .setVertexShader(await vertexShader)
+    .setFragmentShader(await fragmentShader)
+    .bindInVariable('in_vertex', indexManager.forName('vertex'))
+    .bindInVariable('in_color', indexManager.forName('color'))
+    .bindInVariable('in_normal', indexManager.forName('normal'))
     .link()
     .activate();
 
@@ -62,37 +35,60 @@
   const cameraUniform = program.referenceUniform('camera');
   const modelUniform = program.referenceUniform('model');
 
-  const {Mesh} = await modules['Mesh'];
-  // const planeMesh = SurmEngine.Mesh.xyPlane({subdivisions: 10});
-  const planeMesh = Mesh.normalizedCubeSphere({subdivisions: 10});
+  const {XYPlane, NormalizedCubeSphere} = await modules['Mesh'];
+  // const {VBOPackager} = await modules['VBOPackager'];
+  // const vertexPackage = new VBOPackager();
+
+  // vertexPackage.setSize(10000*3);
+  // vertexPackage.addSection('plane');
+
+  const planeMesh = XYPlane.vertices();
+  vao.bind();
   vao.createVBO()
     .bind()
     .setData(planeMesh.data)
     .setItemSize(3)
-    .bindToIndex(indexManager.forName('in_vertex'));
+    .bindToIndex(indexManager.forName('vertex'));
 
   vao.createVBO()
     .bind()
-    // .setData(
-    //   new Float32Array(planeMesh.numPoints * 4)
-    //     .map((_, idx) => idx % 4 === 3?1:(idx/4/planeMesh.numPoints))
-    // )
     .setData(
       new Float32Array(planeMesh.numPoints * 4).fill(1)
     )
     .setItemSize(4)
-    .bindToIndex(indexManager.forName('in_color'));
+    .bindToIndex(indexManager.forName('color'));
 
   vao.createVBO()
     .bind()
-    // .setData(
-    //   new Float32Array(planeMesh.numPoints * 3)
-    //     .map((_, idx) => idx % 3 === 2?1:0)
-    // )
     .setNormalize(true)
-    .setData(planeMesh.data)
+    .setData(XYPlane.normals().data)
     .setItemSize(3)
-    .bindToIndex(indexManager.forName('in_normal'));
+    .bindToIndex(indexManager.forName('normal'));
+
+
+  // const sphereMesh = NormalizedCubeSphere.vertices();
+  // vao2.bind();
+  // vao2.createVBO()
+  //   .bind()
+  //   .setData(sphereMesh.data)
+  //   .setItemSize(3)
+  //   .bindToIndex(indexManager.forName('vertex'));
+
+  // vao2.createVBO()
+  //   .bind()
+  //   .setData(
+  //     new Float32Array(sphereMesh.numPoints * 4).fill(1)
+  //   )
+  //   .setItemSize(4)
+  //   .bindToIndex(indexManager.forName('color'));
+
+  // vao2.createVBO()
+  //   .bind()
+  //   .setNormalize(true)
+  //   .setData(NormalizedCubeSphere.normals().data)
+  //   .setItemSize(3)
+  //   .bindToIndex(indexManager.forName('normal'));
+
 
   const {Camera} = await modules['Camera'];
   const camera =
@@ -105,11 +101,14 @@
   const {SceneGraph, Entity} = await modules['SceneGraph'];
   const scene = new SceneGraph()
     .add(
-      new Entity('plane', {numPoints: planeMesh.numPoints, idx: 0})
-        // .scale(100)
-        // .rotate([1, 0, 0], 90)
-        .move([0, 5, 0])
+      new Entity('plane', {numPoints: planeMesh.numPoints, idx: 0, vao})
+        .scale(100)
+        .rotate([1, 0, 0], -90)
     )
+    // .add(
+    //   new Entity('sphere', {numPoints: sphereMesh.numPoints, idx: 0, vao: vao2})
+    //     .move([0, 5, 0])
+    // )
     .add(
       new Entity('player_move')
         .add(
@@ -126,8 +125,8 @@
   const {Helpers} = await modules['Helpers'];
   gl.clearColor(0, 0, 0, 1);
   gl.enable(gl.DEPTH_TEST);
-  // gl.enable(gl.CULL_FACE);
-  // gl.cullFace(gl.BACK);
+  gl.enable(gl.CULL_FACE);
+  gl.cullFace(gl.BACK);
   Helpers.autosize(gl, _ => {
     camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
     viewUniform.setMatrix4(camera.viewMatrix);
@@ -148,7 +147,7 @@
 
     flatScene.forEach(entry => {
       if(!(entry.entity.entity && 'idx' in entry.entity.entity)) return;
-
+      entry.entity.entity.vao.bind()
       cameraUniform.setMatrix4(mat4.invert(scratch, playerCamera.accumulatedTransform));
       modelUniform.setMatrix4(entry.accumulatedTransform);
       gl.drawArrays(gl.TRIANGLES, entry.entity.entity.idx, entry.entity.entity.numPoints);

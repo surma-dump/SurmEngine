@@ -3,7 +3,7 @@ module.exports = (async function() {
     constructor(gl) {
       this._gl = gl;
       this._vao = this._gl.createVertexArray();
-      this._gl.bindVertexArray(this._vao);
+      this.bind();
     }
 
     createVBO() {
