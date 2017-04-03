@@ -11,46 +11,30 @@
     'Program',
     'SceneGraph',
     'VAO',
-    // 'VBOPackager',
   ].reduce((acc, m) => Object.assign(acc, {[m]: SystemJS.import(`/surmengine/${m}.js`).then(m => m)}), {});
   const canvas = document.querySelector('canvas');
   const gl = canvas.getContext('webgl2');
   const {VAO} = await modules['VAO'];
   const {IndexManager} = await modules['IndexManager'];
   const {Program} = await modules['Program'];
-  const vao = new VAO(gl);
-  // const vao2 = new VAO(gl);
+  const planeVAO = new VAO(gl);
+  const sphereVAO = new VAO(gl);
   const indexManager = new IndexManager();
   const program = new Program(gl)
     .setVertexShader(await vertexShader)
-    .setFragmentShader(await fragmentShader)
-    .bindInVariable('in_vertex', indexManager.forName('vertex'))
-    .bindInVariable('in_color', indexManager.forName('color'))
-    .bindInVariable('in_normal', indexManager.forName('normal'))
-    .link()
-    .activate();
-
-
-  const viewUniform = program.referenceUniform('view');
-  const cameraUniform = program.referenceUniform('camera');
-  const modelUniform = program.referenceUniform('model');
+    .setFragmentShader(await fragmentShader);
 
   const {XYPlane, NormalizedCubeSphere} = await modules['Mesh'];
-  // const {VBOPackager} = await modules['VBOPackager'];
-  // const vertexPackage = new VBOPackager();
-
-  // vertexPackage.setSize(10000*3);
-  // vertexPackage.addSection('plane');
 
   const planeMesh = XYPlane.vertices();
-  vao.bind();
-  vao.createVBO()
+  planeVAO.bind();
+  planeVAO.createVBO()
     .bind()
     .setData(planeMesh.data)
     .setItemSize(3)
     .bindToIndex(indexManager.forName('vertex'));
 
-  vao.createVBO()
+  planeVAO.createVBO()
     .bind()
     .setData(
       new Float32Array(planeMesh.numPoints * 4).fill(1)
@@ -58,41 +42,49 @@
     .setItemSize(4)
     .bindToIndex(indexManager.forName('color'));
 
-  vao.createVBO()
+  planeVAO.createVBO()
     .bind()
     .setNormalize(true)
     .setData(XYPlane.normals().data)
     .setItemSize(3)
     .bindToIndex(indexManager.forName('normal'));
 
+  program
+    .bindInVariable('in_vertex', indexManager.forName('vertex'))
+    .bindInVariable('in_color', indexManager.forName('color'))
+    .bindInVariable('in_normal', indexManager.forName('normal'));
 
-  // const sphereMesh = NormalizedCubeSphere.vertices();
-  // vao2.bind();
-  // vao2.createVBO()
-  //   .bind()
-  //   .setData(sphereMesh.data)
-  //   .setItemSize(3)
-  //   .bindToIndex(indexManager.forName('vertex'));
+  const sphereMesh = NormalizedCubeSphere.vertices();
+  sphereVAO.bind();
+  sphereVAO.createVBO()
+    .bind()
+    .setData(sphereMesh.data)
+    .setItemSize(3)
+    .bindToIndex(indexManager.forName('vertex'));
 
-  // vao2.createVBO()
-  //   .bind()
-  //   .setData(
-  //     new Float32Array(sphereMesh.numPoints * 4).fill(1)
-  //   )
-  //   .setItemSize(4)
-  //   .bindToIndex(indexManager.forName('color'));
+  sphereVAO.createVBO()
+    .bind()
+    .setData(
+      new Float32Array(sphereMesh.numPoints * 4).fill(1)
+    )
+    .setItemSize(4)
+    .bindToIndex(indexManager.forName('color'));
 
-  // vao2.createVBO()
-  //   .bind()
-  //   .setNormalize(true)
-  //   .setData(NormalizedCubeSphere.normals().data)
-  //   .setItemSize(3)
-  //   .bindToIndex(indexManager.forName('normal'));
+  sphereVAO.createVBO()
+    .bind()
+    .setNormalize(true)
+    .setData(NormalizedCubeSphere.normals().data)
+    .setItemSize(3)
+    .bindToIndex(indexManager.forName('normal'));
 
+  program
+    .bindInVariable('in_vertex', indexManager.forName('vertex'))
+    .bindInVariable('in_color', indexManager.forName('color'))
+    .bindInVariable('in_normal', indexManager.forName('normal'));
 
   const {Camera} = await modules['Camera'];
   const camera =
-    new (await Camera)()
+    new Camera()
       .setAspectRatio(gl.canvas.width / gl.canvas.height)
       .setFov(90)
       .setNearPlane(0.1)
@@ -101,14 +93,30 @@
   const {SceneGraph, Entity} = await modules['SceneGraph'];
   const scene = new SceneGraph()
     .add(
-      new Entity('plane', {numPoints: planeMesh.numPoints, idx: 0, vao})
+      new Entity('plane', {numPoints: planeMesh.numPoints, idx: 0, vao: planeVAO})
         .scale(100)
         .rotate([1, 0, 0], -90)
     )
-    // .add(
-    //   new Entity('sphere', {numPoints: sphereMesh.numPoints, idx: 0, vao: vao2})
-    //     .move([0, 5, 0])
-    // )
+    .add(
+      new Entity('sphere', {numPoints: sphereMesh.numPoints, idx: 0, vao: sphereVAO})
+        .move([-50, 5, -50])
+        .scale(5)
+    )
+    .add(
+      new Entity('sphere', {numPoints: sphereMesh.numPoints, idx: 0, vao: sphereVAO})
+        .move([-50, 5, 50])
+        .scale(5)
+    )
+    .add(
+      new Entity('sphere', {numPoints: sphereMesh.numPoints, idx: 0, vao: sphereVAO})
+        .move([50, 5, -50])
+        .scale(5)
+    )
+    .add(
+      new Entity('sphere', {numPoints: sphereMesh.numPoints, idx: 0, vao: sphereVAO})
+        .move([50, 5, 50])
+        .scale(5)
+    )
     .add(
       new Entity('player_move')
         .add(
@@ -120,7 +128,16 @@
                 )
             )
         )
+        .move([0, 1.8, 0])
     );
+
+  program
+    .link()
+    .activate();
+
+  const viewUniform = program.referenceUniform('view');
+  const cameraUniform = program.referenceUniform('camera');
+  const modelUniform = program.referenceUniform('model');
 
   const {Helpers} = await modules['Helpers'];
   gl.clearColor(0, 0, 0, 1);
@@ -154,13 +171,12 @@
     });
   });
 
-  let speed = 5;
+  let speed = 50;
   let fov = 30;
   const playerRotX = scene.find(e => e.name === 'player_rot_x');
   const playerRotY = scene.find(e => e.name === 'player_rot_y');
   const playerMove = scene.find(e => e.name === 'player_move');
   let move = new Float32Array(3);
-  playerMove.move([0, 5, 3]);
   function handleInput(keyboard, mouse, delta) {
     const {dx, dy} = mouse.delta();
     playerRotY.rotate([0, 1, 0], -dx);
