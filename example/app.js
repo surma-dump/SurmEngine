@@ -1,4 +1,17 @@
 (async function() {
+  function range(start, len) {
+    return new Array(len).fill().map((_, i) => start + i);
+  };
+
+  Array.prototype.groupBy = function(f) {
+    const acc = new Map();
+    this.forEach(v => {
+      const k = f(v);
+      acc.has(k) ? acc.get(k).push(v) : acc.set(k, [v]);
+    });
+    return acc;
+  };
+
   const vertexShader = fetch('vertex.glsl').then(r => r.text());
   const fragmentShader = fetch('fragment.glsl').then(r => r.text());
   const modules = [
@@ -112,13 +125,13 @@
         .move([0, 1.8, 0])
     );
 
-  new Array(100).fill().forEach((_, idx) => {
-    const y = Math.floor(idx / 10);
-    const x = idx % 10;
+  range(0, 100).forEach(i => {
+    const y = Math.floor(i / 10);
+    const x = i % 10;
     scene.add(
       new Node('sphere', {numPoints: sphereMesh.numPoints, idx: 0, vao: sphereVAO})
         .move([-50 + x*10, 5, -50 + y*10])
-        .scale(5)
+        .scale(4)
     );
   });
 
@@ -130,11 +143,11 @@
   const cameraUniform = program.referenceUniform('camera');
   const modelUniform = program.referenceUniform('model');
 
-  const {Helpers} = await modules['Helpers'];
   gl.clearColor(0, 0, 0, 1);
   gl.enable(gl.DEPTH_TEST);
   gl.enable(gl.CULL_FACE);
   gl.cullFace(gl.BACK);
+  const {Helpers} = await modules['Helpers'];
   Helpers.autosize(gl, _ => {
     camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
     viewUniform.setMatrix4(camera.viewMatrix);
@@ -151,14 +164,18 @@
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const flatScene = scene.flatten();
     const playerCamera = flatScene.find(entry => entry.node.name === 'player_camera');
+    cameraUniform.setMatrix4(mat4.invert(scratch, playerCamera.accumulatedTransform));
 
-    flatScene.forEach(entry => {
-      if(!('idx' in entry.node.data)) return;
-      entry.node.data.vao.bind();
-      cameraUniform.setMatrix4(mat4.invert(scratch, playerCamera.accumulatedTransform));
-      modelUniform.setMatrix4(entry.accumulatedTransform);
-      gl.drawArrays(gl.TRIANGLES, entry.node.data.idx, entry.node.data.numPoints);
-    });
+    flatScene
+      .filter(entry => 'vao' in entry.node.data)
+      .groupBy(entry => entry.node.data.vao)
+      .forEach((entries, vao) => {
+        vao.bind();
+        entries.forEach(entry => {
+          modelUniform.setMatrix4(entry.accumulatedTransform);
+          gl.drawArrays(gl.TRIANGLES, entry.node.data.idx, entry.node.data.numPoints);
+        });
+      });
   });
 
   let speed = 50;
