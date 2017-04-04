@@ -5,15 +5,15 @@ in vec3 in_normal;
 uniform mat4 view;
 uniform mat4 camera;
 uniform mat4 model[128];
+uniform vec4 lightPosition;
 out vec4 color;
 out vec4 normal;
 out vec4 light;
 
-vec3 light_dir = vec3(0.0, -80.0, -80.0);
 
 void main() {
   gl_Position = view * camera * model[gl_InstanceID] * vec4(in_vertex, 1.0);
   color = in_color;
   normal = model[gl_InstanceID] * vec4(in_normal, 0.0);
-  light = vec4(light_dir, 1.0);
+  light = lightPosition - model[gl_InstanceID] * vec4(in_vertex, 1.0);
 }

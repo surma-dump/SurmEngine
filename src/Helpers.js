@@ -32,6 +32,8 @@ module.exports = (async function() {
     }
 
     static autosize(gl, f, opts = {density: window.devicePixelRatio}) {
+      f && f();
+      if(typeof ResizeObserver === 'undefined') return;
       const ro = new ResizeObserver(entries => {
         const w = entries[0].contentRect.width * opts.density;
         const h = entries[0].contentRect.height * opts.density;
@@ -41,7 +43,6 @@ module.exports = (async function() {
         f && f();
       });
       ro.observe(gl.canvas);
-      f && f();
     }
 
     static logMatrix(m) {

@@ -96,7 +96,7 @@ module.exports = (async function() {
     }
 
     setVector4(vec4) {
-      this._gl.uniform4v(this._ref, vec4);
+      this._gl.uniform4fv(this._ref, vec4);
     }
   }
 
