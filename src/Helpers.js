@@ -41,6 +41,7 @@ module.exports = (async function() {
         f && f();
       });
       ro.observe(gl.canvas);
+      f && f();
     }
 
     static logMatrix(m) {

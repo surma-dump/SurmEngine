@@ -1,0 +1,148 @@
+<!doctype html>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+  canvas {
+    width: 100vw;
+    height: 100vh;
+  }
+</style>
+<canvas></canvas>
+<script src="/node_modules/systemjs/dist/system.js"></script>
+<script src="/node_modules/gl-matrix/dist/gl-matrix-min.js"></script>
+<script>
+(async function() {
+  function range(start, len) {
+    return new Array(len).fill().map((_, i) => start + i);
+  };
+
+  Array.prototype.groupBy = function(f) {
+    const acc = new Map();
+    this.forEach(v => {
+      const k = f(v);
+      acc.has(k) ? acc.get(k).push(v) : acc.set(k, [v]);
+    });
+    return acc;
+  };
+
+  const vertexShader = fetch('vertex.glsl').then(r => r.text());
+  const fragmentShader = fetch('fragment.glsl').then(r => r.text());
+  const modules = [
+    'VAO',
+    'Helpers',
+    'Camera',
+    'Input',
+    'Mesh',
+    'Program',
+    'SceneGraph',
+  ].reduce((acc, m) => Object.assign(acc, {[m]: SystemJS.import(`/dist/${m}.js`).then(m => m)}), {});
+
+  const canvas = document.querySelector('canvas');
+  const gl = canvas.getContext('webgl2');
+
+  const {Program} = await modules['Program'];
+  const program = new Program(gl)
+    .setVertexShader(await vertexShader)
+    .setFragmentShader(await fragmentShader);
+
+
+  const { NormalizedCubeSphere} = await modules['Mesh'];
+  const {VAO} = await modules['VAO'];
+
+  const sphereMesh = NormalizedCubeSphere.vertices();
+  const sphereVAO = new VAO(gl);
+  sphereVAO.bind();
+  sphereVAO.createVBO()
+    .bind()
+    .setData(sphereMesh.data)
+    .setItemSize(3)
+    .bindToIndex(0);
+
+  sphereVAO.createVBO()
+    .bind()
+    .setData(
+      new Float32Array(sphereMesh.numPoints * 4).fill(1)
+    )
+    .setItemSize(4)
+    .bindToIndex(1);
+
+  sphereVAO.createVBO()
+    .bind()
+    .setNormalize(true)
+    .setData(NormalizedCubeSphere.normals().data)
+    .setItemSize(3)
+    .bindToIndex(2);
+
+  program
+    .bindInVariable('in_vertex', 0)
+    .bindInVariable('in_color', 1)
+    .bindInVariable('in_normal', 2);
+
+  const {Camera} = await modules['Camera'];
+  const camera =
+    new Camera()
+      .setAspectRatio(gl.canvas.width / gl.canvas.height)
+      .setFov(45)
+      .setNearPlane(0.1)
+      .setFarPlane(1000);
+
+  const {SceneGraph, Node} = await modules['SceneGraph'];
+  window.scene = new SceneGraph()
+    .add(
+      new Node('camera', camera)
+        .move([0, 100, 100])
+        .rotate([1, 0, 0], -45)
+    );
+
+  range(0, 100).forEach(i => {
+    const y = Math.floor(i / 10);
+    const x = i % 10;
+    scene.add(
+      new Node('sphere', {numPoints: sphereMesh.numPoints, idx: 0, vao: sphereVAO})
+        .move([-45 + x*10, 5, -45 + y*10])
+        .scale(4)
+    );
+  });
+
+  program
+    .link()
+    .activate();
+
+  const viewUniform = program.referenceUniform('view');
+  const cameraUniform = program.referenceUniform('camera');
+  const modelUniforms = range(0, 128).map(i => program.referenceUniform(`model[${i}]`));
+
+  gl.clearColor(0, 0, 0, 1);
+  gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.CULL_FACE);
+  gl.cullFace(gl.BACK);
+  const {Helpers} = await modules['Helpers'];
+  Helpers.autosize(gl, _ => {
+    camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
+    viewUniform.setMatrix4(camera.viewMatrix);
+  });
+
+  const scratchMatrix = mat4.create();
+  window.loop = Helpers.loop(delta => {
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    const flatScene = scene.flatten();
+    const cameraNode = flatScene.find(entry => entry.node.name === 'camera');
+    cameraUniform.setMatrix4(mat4.invert(scratchMatrix, cameraNode.accumulatedTransform));
+
+    flatScene
+      .filter(entry => 'vao' in entry.node.data)
+      .groupBy(entry => entry.node.data.vao)
+      .forEach((entries, vao) => {
+        vao.bind();
+        entries.forEach((entry, i) => {
+          modelUniforms[i].setMatrix4(entry.accumulatedTransform);
+        });
+        gl.drawArraysInstanced(gl.TRIANGLES, entries[0].node.data.idx, entries[0].node.data.numPoints, entries.length);
+      });
+  });
+})();
+
+</script>
+

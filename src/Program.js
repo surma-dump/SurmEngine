@@ -12,7 +12,7 @@ module.exports = (async function() {
       this._gl.shaderSource(shader, source);
       this._gl.compileShader(shader);
       if (!this._gl.getShaderParameter(shader, this._gl.COMPILE_STATUS)) {
-        throw new Error(`Error compiling ${type==gl.VERTEX_SHADER?'vertex':'fragment'} shader: ${gl.getShaderInfoLog(shader)}`);
+        throw new Error(`Error compiling ${type==this._gl.VERTEX_SHADER?'vertex':'fragment'} shader: ${this._gl.getShaderInfoLog(shader)}`);
       }
       return shader;
     }
