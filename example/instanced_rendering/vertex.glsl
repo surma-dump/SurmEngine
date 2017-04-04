@@ -4,7 +4,7 @@ in vec4 in_color;
 in vec3 in_normal;
 uniform mat4 view;
 uniform mat4 camera;
-uniform mat4 model[128];
+uniform mat4 model[16];
 uniform vec4 lightPosition;
 out vec4 color;
 out vec4 normal;

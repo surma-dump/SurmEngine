@@ -40,7 +40,7 @@
   ].reduce((acc, m) => Object.assign(acc, {[m]: SystemJS.import(`/dist/${m}.js`).then(m => m)}), {});
 
   const canvas = document.querySelector('canvas');
-  const gl = canvas.getContext('webgl2');
+  window.gl = canvas.getContext('webgl2');
 
   const {Program} = await modules['Program'];
   const program = new Program(gl)
@@ -103,7 +103,7 @@
         .rotate([1, 0, 0], -45)
     );
 
-  const gridLength = 9;
+  const gridLength = 4;
   const numSpheres = gridLength * gridLength;
   range(0, numSpheres).forEach(i => {
     const y = Math.floor(i / gridLength);
@@ -121,7 +121,7 @@
 
   const viewUniform = program.referenceUniform('view');
   const cameraUniform = program.referenceUniform('camera');
-  const modelUniforms = range(0, 128).map(i => program.referenceUniform(`model[${i}]`));
+  const modelUniforms = range(0, 16).map(i => program.referenceUniform(`model[${i}]`));
   const lightPosition = program.referenceUniform('lightPosition');
   const lightRotation = scene.find(e => e.name === 'lightRotation');
 
