@@ -86,50 +86,40 @@
   const camera =
     new Camera()
       .setAspectRatio(gl.canvas.width / gl.canvas.height)
-      .setFov(90)
+      .setFov(45)
       .setNearPlane(0.1)
       .setFarPlane(1000);
 
-  const {SceneGraph, Entity} = await modules['SceneGraph'];
+  const {SceneGraph, Node} = await modules['SceneGraph'];
   const scene = new SceneGraph()
-    .add(
-      new Entity('plane', {numPoints: planeMesh.numPoints, idx: 0, vao: planeVAO})
+  .add(
+      new Node('plane', {numPoints: planeMesh.numPoints, idx: 0, vao: planeVAO})
         .scale(100)
         .rotate([1, 0, 0], -90)
     )
     .add(
-      new Entity('sphere', {numPoints: sphereMesh.numPoints, idx: 0, vao: sphereVAO})
-        .move([-50, 5, -50])
-        .scale(5)
-    )
-    .add(
-      new Entity('sphere', {numPoints: sphereMesh.numPoints, idx: 0, vao: sphereVAO})
-        .move([-50, 5, 50])
-        .scale(5)
-    )
-    .add(
-      new Entity('sphere', {numPoints: sphereMesh.numPoints, idx: 0, vao: sphereVAO})
-        .move([50, 5, -50])
-        .scale(5)
-    )
-    .add(
-      new Entity('sphere', {numPoints: sphereMesh.numPoints, idx: 0, vao: sphereVAO})
-        .move([50, 5, 50])
-        .scale(5)
-    )
-    .add(
-      new Entity('player_move')
+      new Node('player_move')
         .add(
-          new Entity('player_rot_y')
+          new Node('player_rot_y')
             .add(
-              new Entity('player_rot_x')
+              new Node('player_rot_x')
                 .add(
-                  new Entity('player_camera', camera)
+                  new Node('player_camera', camera)
                 )
             )
         )
         .move([0, 1.8, 0])
     );
+
+  new Array(100).fill().forEach((_, idx) => {
+    const y = Math.floor(idx / 10);
+    const x = idx % 10;
+    scene.add(
+      new Node('sphere', {numPoints: sphereMesh.numPoints, idx: 0, vao: sphereVAO})
+        .move([-50 + x*10, 5, -50 + y*10])
+        .scale(5)
+    );
+  });
 
   program
     .link()
@@ -160,19 +150,18 @@
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const flatScene = scene.flatten();
-    const playerCamera = flatScene.find(entry => entry.entity.name === 'player_camera');
+    const playerCamera = flatScene.find(entry => entry.node.name === 'player_camera');
 
     flatScene.forEach(entry => {
-      if(!(entry.entity.entity && 'idx' in entry.entity.entity)) return;
-      entry.entity.entity.vao.bind()
+      if(!('idx' in entry.node.data)) return;
+      entry.node.data.vao.bind();
       cameraUniform.setMatrix4(mat4.invert(scratch, playerCamera.accumulatedTransform));
       modelUniform.setMatrix4(entry.accumulatedTransform);
-      gl.drawArrays(gl.TRIANGLES, entry.entity.entity.idx, entry.entity.entity.numPoints);
+      gl.drawArrays(gl.TRIANGLES, entry.node.data.idx, entry.node.data.numPoints);
     });
   });
 
   let speed = 50;
-  let fov = 30;
   const playerRotX = scene.find(e => e.name === 'player_rot_x');
   const playerRotY = scene.find(e => e.name === 'player_rot_y');
   const playerMove = scene.find(e => e.name === 'player_move');
@@ -205,13 +194,11 @@
           move[1] = -speed * delta/1000;
           break;
         case 'Comma':
-          fov--;
-          camera.setFov(fov);
+          camera.setFov(camera.fov - 1);
           viewUniform.setMatrix4(camera.viewMatrix);
           break;
         case 'Period':
-          fov++;
-          camera.setFov(fov);
+          camera.setFov(camera.fov + 1);
           viewUniform.setMatrix4(camera.viewMatrix);
           break;
       }

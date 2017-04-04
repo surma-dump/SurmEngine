@@ -3,11 +3,11 @@ module.exports = (async function() {
 
   class SceneGraph {
     constructor() {
-      this._root = new Entity('_root');
+      this._root = new Node('_root');
     }
 
-    add(entity) {
-      this._root.add(entity);
+    add(node) {
+      this._root.add(node);
       return this;
     }
 
@@ -24,16 +24,16 @@ module.exports = (async function() {
     }
   }
 
-  class Entity {
-    constructor(name, entity = null) {
+  class Node {
+    constructor(name, data = {}) {
       this._transform = mat4.create();
       this._children = [];
       this.name = name;
-      this.entity = entity;
+      this.data = data;
     }
 
-    add(entity) {
-      this._children.push(entity);
+    add(node) {
+      this._children.push(node);
       return this;
     }
 
@@ -85,7 +85,7 @@ module.exports = (async function() {
       const newTransform = mat4.multiply(mat4.create(), transform, this._transform);
       return Array.prototype.concat.apply(
         [{
-          entity: this,
+          node: this,
           accumulatedTransform: newTransform,
         }],
         this._children.map(e => e._flatten(newTransform))
@@ -94,9 +94,9 @@ module.exports = (async function() {
 
     _visitAll(f) {
       if (!f(this)) return;
-      this._children.forEach(entity => entity._visitAll(f));
+      this._children.forEach(node => node._visitAll(f));
     }
   }
 
-  return {SceneGraph, Entity};
+  return {SceneGraph, Node};
 })();
