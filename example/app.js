@@ -11,21 +11,22 @@
     'SceneGraph',
     'VAO',
   ].reduce((acc, m) => Object.assign(acc, {[m]: SystemJS.import(`../dist/${m}.js`).then(m => m)}), {});
+
   const canvas = document.querySelector('canvas');
   const gl = canvas.getContext('webgl2');
-  const {VAO} = await modules['VAO'];
+
   const {IndexManager} = await modules['IndexManager'];
   const {Program} = await modules['Program'];
-  const planeVAO = new VAO(gl);
-  const sphereVAO = new VAO(gl);
   const indexManager = new IndexManager();
   const program = new Program(gl)
     .setVertexShader(await vertexShader)
     .setFragmentShader(await fragmentShader);
 
-  const {XYPlane, NormalizedCubeSphere} = await modules['Mesh'];
 
+  const {XYPlane, NormalizedCubeSphere} = await modules['Mesh'];
+  const {VAO} = await modules['VAO'];
   const planeMesh = XYPlane.vertices();
+  const planeVAO = new VAO(gl);
   planeVAO.bind();
   planeVAO.createVBO()
     .bind()
@@ -54,6 +55,7 @@
     .bindInVariable('in_normal', indexManager.forName('normal'));
 
   const sphereMesh = NormalizedCubeSphere.vertices();
+  const sphereVAO = new VAO(gl);
   sphereVAO.bind();
   sphereVAO.createVBO()
     .bind()
