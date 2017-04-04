@@ -1,6 +1,4 @@
 module.exports = (async function(scope) {
-  const {glMatrix, mat4} = await SystemJS.import('/gl-matrix.js');
-
   class Camera {
     constructor() {
       this._aspectRatio = 1;

@@ -1,7 +1,6 @@
 (async function() {
-  const vertexShader = fetch('/vertex.glsl').then(r => r.text());
-  const fragmentShader = fetch('/fragment.glsl').then(r => r.text());
-  const glMatrixModule = SystemJS.import('/gl-matrix.js');
+  const vertexShader = fetch('vertex.glsl').then(r => r.text());
+  const fragmentShader = fetch('fragment.glsl').then(r => r.text());
   const modules = [
     'Camera',
     'Helpers',
@@ -11,7 +10,7 @@
     'Program',
     'SceneGraph',
     'VAO',
-  ].reduce((acc, m) => Object.assign(acc, {[m]: SystemJS.import(`/surmengine/${m}.js`).then(m => m)}), {});
+  ].reduce((acc, m) => Object.assign(acc, {[m]: SystemJS.import(`../dist/${m}.js`).then(m => m)}), {});
   const canvas = document.querySelector('canvas');
   const gl = canvas.getContext('webgl2');
   const {VAO} = await modules['VAO'];
@@ -141,7 +140,6 @@
   viewUniform.setMatrix4(camera.viewMatrix);
 
   const {KeyboardState, MouseController} = await modules['Input'];
-  const {mat4} = await glMatrixModule;
   const keyboard = new KeyboardState();
   const mouse = new MouseController(gl);
   const scratch = mat4.create();

@@ -1,6 +1,4 @@
 module.exports = (async function() {
-  const {glMatrix, mat4, vec3, quat} = await SystemJS.import('/gl-matrix.js');
-
   class XYPlane {
     static numPoints(opts = {subdivisions: 1}) {
       const numCells = opts.subdivisions * opts.subdivisions;

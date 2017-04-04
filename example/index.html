@@ -11,14 +11,11 @@
   }
 </style>
 <canvas></canvas>
-<script src="system.js"></script>
+<script src="../node_modules/systemjs/dist/system.js"></script>
+<script src="../node_modules/gl-matrix/dist/gl-matrix-min.js"></script>
 <script>
   SystemJS.config({
     meta: {
-      'gl-matrix.js': {
-        format: 'global',
-        exports: ['glMatrix', 'mat4', 'vec4', 'vec3', 'quat'],
-      },
       '*': {
         format: 'cjs',
       },

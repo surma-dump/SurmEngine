@@ -1,6 +1,4 @@
 module.exports = (async function() {
-  const {glMatrix, mat4, vec3} = await SystemJS.import('/gl-matrix.js');
-
   class SceneGraph {
     constructor() {
       this._root = new Node('_root');

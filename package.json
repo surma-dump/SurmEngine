@@ -3,12 +3,17 @@
   "version": "0.0.1",
   "description": "Super-lightweight wrapper library around WebGL2",
   "dependencies": {
+    "babili": "^0.0.12"
   },
   "devDependencies": {
     "eslint": "^3.19.0",
-    "eslint-config-google": "^0.7.1"
+    "eslint-config-google": "^0.7.1",
+    "gl-matrix": "git+https://github.com/toji/gl-matrix",
+    "systemjs": "^0.20.11"
   },
   "scripts": {
+    "build": "npm run minify",
+    "minify": "babili -d dist src",
     "test": "eslint ."
   },
   "repository": {

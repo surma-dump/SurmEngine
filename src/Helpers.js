@@ -1,5 +1,4 @@
 module.exports = (async function() {
-  const {mat4} = await SystemJS.import('/gl-matrix.js');
   class Helpers {
     static loop(f) {
       let last;
