@@ -32,17 +32,23 @@ module.exports = (async function() {
     }
 
     static autosize(gl, f, opts = {density: window.devicePixelRatio}) {
-      f && f();
-      if(typeof ResizeObserver === 'undefined') return;
-      const ro = new ResizeObserver(entries => {
-        const w = entries[0].contentRect.width * opts.density;
-        const h = entries[0].contentRect.height * opts.density;
+      const update = function(w, h) {
         gl.canvas.width = w;
         gl.canvas.height = h;
         gl.viewport(0, 0, w, h);
         f && f();
-      });
-      ro.observe(gl.canvas);
+      };
+      if(typeof ResizeObserver === 'undefined') {
+        const rect = gl.canvas.getBoundingClientRect();
+        update(rect.width * opts.density, rect.height * opts.density);
+      } else {
+        const ro = new ResizeObserver(entries => {
+          const w = entries[0].contentRect.width * opts.density;
+          const h = entries[0].contentRect.height * opts.density;
+          update(w, h);
+        });
+        ro.observe(gl.canvas);
+      }
     }
 
     static logMatrix(m) {
