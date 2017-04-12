@@ -37,7 +37,8 @@
     'Mesh',
     'Program',
     'SceneGraph',
-  ].reduce((acc, m) => Object.assign(acc, {[m]: SystemJS.import(`/dist/${m}.js`).then(m => m)}), {});
+  ].reduce((acc, m) =>
+    Object.assign(acc, {[m]: SystemJS.import(`/dist/${m}.js`).then(m => m)}), {});
 
   const canvas = document.querySelector('canvas');
   window.gl = canvas.getContext('webgl2');
@@ -47,44 +48,82 @@
     .setVertexShader(await vertexShader)
     .setFragmentShader(await fragmentShader);
 
-
-  const { NormalizedCubeSphere} = await modules['Mesh'];
+  const {NormalizedCubeSphere} = await modules['Mesh'];
   const {VAO} = await modules['VAO'];
 
-  const sphereMesh = NormalizedCubeSphere.vertices();
+  let subdivisions = 10;
+  let spherePoints = NormalizedCubeSphere.numPoints({subdivisions});
   const sphereVAO = new VAO(gl);
   sphereVAO.bind();
+
+  // Vertices
   sphereVAO.createVBO()
     .bind()
-    .setData(sphereMesh.data)
+    .setData(NormalizedCubeSphere.vertices({subdivisions}).data)
     .setItemSize(3)
     .bindToIndex(0);
 
+  // Colors
   sphereVAO.createVBO()
     .bind()
     .setData(
-      new Float32Array(sphereMesh.numPoints * 4).fill(1)
+      new Float32Array(spherePoints * 4).fill(1)
     )
     .setItemSize(4)
     .bindToIndex(1);
 
+  // Normals
   sphereVAO.createVBO()
     .bind()
-    .setNormalize(true)
-    .setData(NormalizedCubeSphere.normals().data)
+    .setData(NormalizedCubeSphere.normals({subdivisions}).data)
     .setItemSize(3)
     .bindToIndex(2);
+
+  const instancesVBO = sphereVAO.createVBO()
+    .bind();
+
+  instancesVBO
+    .setOffset(0)
+    .setItemSize(4)
+    .setStride(4 * 16)
+    .setDivisor(1)
+    .bindToIndex(3);
+
+  instancesVBO
+    .setOffset(16)
+    .setItemSize(4)
+    .setStride(4 * 16)
+    .setDivisor(1)
+    .bindToIndex(4);
+
+  instancesVBO
+    .setOffset(32)
+    .setItemSize(4)
+    .setStride(4 * 16)
+    .setDivisor(1)
+    .bindToIndex(5);
+
+  instancesVBO
+    .setOffset(48)
+    .setItemSize(4)
+    .setStride(4 * 16)
+    .setDivisor(1)
+    .bindToIndex(6);
 
   program
     .bindInVariable('in_vertex', 0)
     .bindInVariable('in_color', 1)
-    .bindInVariable('in_normal', 2);
+    .bindInVariable('in_normal', 2)
+    .bindInVariable('model[0]', 3)
+    .bindInVariable('model[4]', 4)
+    .bindInVariable('model[8]', 5)
+    .bindInVariable('model[12]', 6);
 
   const {Camera} = await modules['Camera'];
   const camera =
     new Camera()
       .setAspectRatio(gl.canvas.width / gl.canvas.height)
-      .setFov(45)
+      .setFov(30)
       .setNearPlane(0.1)
       .setFarPlane(1000);
 
@@ -94,22 +133,22 @@
       new Node('lightRotation')
         .add(
           new Node('light')
-            .move([15, 20, 0])
+            .move([100, 15, 0])
         )
     )
     .add(
       new Node('camera', camera)
-        .move([0, 75, 75])
+        .move([0, 200, 250])
         .rotate([1, 0, 0], -45)
     );
 
-  const gridLength = 4;
+  const gridLength = 64;
   const numSpheres = gridLength * gridLength;
   range(0, numSpheres).forEach(i => {
     const y = Math.floor(i / gridLength);
     const x = i % gridLength;
     scene.add(
-      new Node('sphere', {numPoints: sphereMesh.numPoints, idx: 0, vao: sphereVAO})
+      new Node('sphere', {numPoints: spherePoints, idx: i, vao: sphereVAO})
         .move([-(gridLength-1)*5 + x*10, 5, -(gridLength-1)*5 + y*10])
         .scale(4)
     );
@@ -121,8 +160,8 @@
 
   const viewUniform = program.referenceUniform('view');
   const cameraUniform = program.referenceUniform('camera');
-  const modelUniforms = range(0, 16).map(i => program.referenceUniform(`model[${i}]`));
   const lightPosition = program.referenceUniform('lightPosition');
+
   const lightRotation = scene.find(e => e.name === 'lightRotation');
 
   gl.clearColor(0, 0, 0, 1);
@@ -137,6 +176,7 @@
 
   const scratchMatrix = mat4.create();
   const scratchVector = vec4.create();
+  const instancesScratch = new Float32Array(16 * numSpheres);
   window.loop = Helpers.loop(delta => {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     lightRotation.rotate([0, 1, 0], 360/5 * delta/1000);
@@ -153,10 +193,13 @@
       .groupBy(entry => entry.node.data.vao)
       .forEach((entries, vao) => {
         vao.bind();
-        entries.forEach((entry, i) => {
-          modelUniforms[i].setMatrix4(entry.accumulatedTransform);
+        entries.forEach(entry => {
+          instancesScratch.set(entry.accumulatedTransform, instancesVBO.stride / 4 * entry.node.data.idx);
         });
-        gl.drawArraysInstanced(gl.TRIANGLES, entries[0].node.data.idx, entries[0].node.data.numPoints, entries.length);
+        instancesVBO
+          .bind()
+          .setData(instancesScratch);
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, spherePoints, numSpheres);
       });
   });
 })();

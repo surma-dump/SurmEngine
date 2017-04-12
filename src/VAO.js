@@ -29,6 +29,7 @@ module.exports = (async function() {
       this._normalize = false;
       this._stride = 0;
       this._offset = 0;
+      this._divisor = 0;
     }
 
     get itemSize() {
@@ -85,6 +86,15 @@ module.exports = (async function() {
       return this;
     }
 
+    get divisor() {
+      return this._divisor;
+    }
+
+    setDivisor(val) {
+      this._divisor = val;
+      return this;
+    }
+
     setData(val) {
       this._gl.bufferData(this._gl.ARRAY_BUFFER, val, this._usage);
       return this;
@@ -98,6 +108,8 @@ module.exports = (async function() {
     bindToIndex(index) {
       this.bind();
       this._gl.vertexAttribPointer(index, this._itemSize, this._type, this._normalized, this._stride, this._offset);
+      this._gl.vertexAttribDivisor(index, this._divisor);
+      return this;
     }
   }
 
