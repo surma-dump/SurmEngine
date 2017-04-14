@@ -48,19 +48,9 @@ module.exports = (async function() {
     }
   }
 
-  class NormalizedCubeSphere {
-    static numPoints(opts = {subdivisions: 10}) {
-      return XYPlane.numPoints(opts) * 6;
-    }
-
-    static vertices(opts = {subdivisions: 10}) {
-      const xyPlane = XYPlane.vertices(opts);
-      const data = new Float32Array(xyPlane.data.length * 6);
-      data.set(xyPlane.data);
-      for(let i = 1; i <= 6; i++)
-        data.copyWithin(i*xyPlane.data.length, 0, xyPlane.data.length);
-
-      const transforms = [
+  class Cube {
+    static _transforms() {
+      return [
         mat4.fromRotationTranslation(mat4.create(), quat.setAxisAngle(quat.create(), [0, 1, 0], glMatrix.toRadian(90)), [1, 0, 0]),
         mat4.fromRotationTranslation(mat4.create(), quat.setAxisAngle(quat.create(), [0, 1, 0], glMatrix.toRadian(-90)), [-1, 0, 0]),
         mat4.fromRotationTranslation(mat4.create(), quat.setAxisAngle(quat.create(), [1, 0, 0], glMatrix.toRadian(-90)), [0, 1, 0]),
@@ -68,12 +58,24 @@ module.exports = (async function() {
         mat4.fromRotationTranslation(mat4.create(), quat.setAxisAngle(quat.create(), [0, 1, 0], glMatrix.toRadian(0)), [0, 0, 1]),
         mat4.fromRotationTranslation(mat4.create(), quat.setAxisAngle(quat.create(), [0, 1, 0], glMatrix.toRadian(180)), [0, 0, -1]),
       ];
+    }
+    static numPoints(opts = {subdivisions: 1}) {
+      return XYPlane.numPoints(opts) * 6;
+    }
+
+    static vertices(opts = {subdivisions: 1}) {
+      const xyPlane = XYPlane.vertices(opts);
+      const data = new Float32Array(xyPlane.data.length * 6);
+      data.set(xyPlane.data);
+      for(let i = 1; i <= 6; i++)
+        data.copyWithin(i*xyPlane.data.length, 0, xyPlane.data.length);
+
+      const transforms = Cube._transforms();;
       transforms.forEach((m, idx) => {
         const view = new Float32Array(data.buffer, idx * xyPlane.data.byteLength, xyPlane.data.length);
         for(let i = 0; i < xyPlane.data.length; i+=3) {
           const v = new Float32Array(view.buffer, view.byteOffset + i * 4, 3);
           vec3.transformMat4(v, v, m);
-          vec3.normalize(v, v);
         }
       });
 
@@ -83,11 +85,49 @@ module.exports = (async function() {
       };
     }
 
+    static normals(opts = {subdivisions: 1}) {
+      const xyPlane = XYPlane.normals(opts);
+      const data = new Float32Array(xyPlane.data.length * 6);
+      data.set(xyPlane.data);
+      for(let i = 1; i <= 6; i++)
+        data.copyWithin(i*xyPlane.data.length, 0, xyPlane.data.length);
+
+      const transforms = Cube._transforms();
+      transforms.forEach((m, idx) => {
+        const view = new Float32Array(data.buffer, idx * xyPlane.data.byteLength, xyPlane.data.length);
+        for(let i = 0; i < xyPlane.data.length; i+=3) {
+          const v = new Float32Array(view.buffer, view.byteOffset + i * 4, 3);
+          vec3.transformMat4(v, v, m);
+        }
+      });
+
+      return {
+        numPoints: xyPlane.numPoints * 6,
+        data,
+      };
+    }
+
+  }
+
+  class NormalizedCubeSphere {
+    static numPoints(opts = {subdivisions: 10}) {
+      return Cube.numPoints(opts);
+    }
+
+    static vertices(opts = {subdivisions: 10}) {
+      const cube = Cube.vertices(opts);
+      for(let i = 0; i < cube.numPoints; i++) {
+        const vertex = new Float32Array(cube.data.buffer, i * 3 * 4, 3);
+        vec3.normalize(vertex, vertex);
+      }
+      return cube;
+    }
+
     static normals(opts = {subdivisions: 10}) {
       return NormalizedCubeSphere.vertices(opts);
     }
 
   }
 
-  return {XYPlane, NormalizedCubeSphere};
+  return {XYPlane, Cube, NormalizedCubeSphere};
 })();

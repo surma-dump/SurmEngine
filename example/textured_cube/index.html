@@ -1,0 +1,150 @@
+<!doctype html>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+  canvas {
+    width: 100vw;
+    height: 100vh;
+  }
+</style>
+<canvas></canvas>
+<script src="/node_modules/systemjs/dist/system.js"></script>
+<script src="/node_modules/gl-matrix/dist/gl-matrix-min.js"></script>
+<script>
+(async function() {
+  function range(start, len) {
+    return new Array(len).fill().map((_, i) => start + i);
+  };
+
+  Array.prototype.groupBy = function(f) {
+    const acc = new Map();
+    this.forEach(v => {
+      const k = f(v);
+      acc.has(k) ? acc.get(k).push(v) : acc.set(k, [v]);
+    });
+    return acc;
+  };
+
+  const vertexShader = fetch('vertex.glsl').then(r => r.text());
+  const fragmentShader = fetch('fragment.glsl').then(r => r.text());
+  const modules = [
+    'VAO',
+    'Helpers',
+    'Camera',
+    'Input',
+    'Mesh',
+    'Program',
+    'SceneGraph',
+  ].reduce((acc, m) =>
+    Object.assign(acc, {[m]: SystemJS.import(`/dist/${m}.js`).then(m => m)}), {});
+
+  const canvas = document.querySelector('canvas');
+  window.gl = canvas.getContext('webgl2');
+
+  const {Program} = await modules['Program'];
+  const program = new Program(gl)
+    .setVertexShader(await vertexShader)
+    .setFragmentShader(await fragmentShader);
+
+  const {Cube} = await modules['Mesh'];
+  const {VAO} = await modules['VAO'];
+
+  let cubePoints = Cube.numPoints();
+  const cubeVAO = new VAO(gl);
+  cubeVAO.bind();
+
+  // Vertices
+  cubeVAO.createVBO()
+    .bind()
+    .setData(Cube.vertices().data)
+    .setItemSize(3)
+    .bindToIndex(0);
+
+  // Colors
+  cubeVAO.createVBO()
+    .bind()
+    .setData(
+      new Float32Array(cubePoints * 4).fill(1)
+    )
+    .setItemSize(4)
+    .bindToIndex(1);
+
+  // Normals
+  cubeVAO.createVBO()
+    .bind()
+    .setData(Cube.normals().data)
+    .setItemSize(3)
+    .bindToIndex(2);
+
+  program
+    .bindInVariable('in_vertex', 0)
+    .bindInVariable('in_color', 1)
+    .bindInVariable('in_normal', 2)
+
+  const {Camera} = await modules['Camera'];
+  const camera =
+    new Camera()
+      .setAspectRatio(gl.canvas.width / gl.canvas.height)
+      .setFov(30)
+      .setNearPlane(0.1)
+      .setFarPlane(1000);
+
+  const {SceneGraph, Node} = await modules['SceneGraph'];
+  window.scene = new SceneGraph()
+    .add(
+      new Node('light')
+        .move([100, 15, 0])
+    )
+    .add(
+      new Node('camera', camera)
+        .move([0, 3, 6])
+        .rotate([1, 0, 0], -25)
+    )
+    .add (
+      new Node('cube', {vao: cubeVAO, numPoints: cubePoints})
+    )
+
+  program
+    .link()
+    .activate();
+
+  const viewUniform = program.referenceUniform('view');
+  const cameraUniform = program.referenceUniform('camera');
+  const lightPosition = program.referenceUniform('lightPosition');
+  const model = program.referenceUniform('model');
+
+  gl.clearColor(0, 0, 0, 1);
+  gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.CULL_FACE);
+  gl.cullFace(gl.BACK);
+  const {Helpers} = await modules['Helpers'];
+  Helpers.autosize(gl, _ => {
+    camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
+    viewUniform.setMatrix4(camera.viewMatrix);
+  });
+
+  const scratchMatrix = mat4.create();
+  const scratchVector = vec4.create();
+  const cube = scene.find(node => node.name === 'cube');
+  window.loop = Helpers.loop(delta => {
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    cube.rotate([0, 1, 0], 45 * delta/1000);
+
+    const flatScene = scene.flatten();
+    const cameraNode = flatScene.find(entry => entry.node.name === 'camera');
+    const lightNode = flatScene.find(entry => entry.node.name === 'light');
+    const cubeNode = flatScene.find(entry => entry.node.name === 'cube');
+    vec4.set(scratchVector, 0, 0, 0, 1);
+    lightPosition.setVector4(vec4.transformMat4(scratchVector, scratchVector, lightNode.accumulatedTransform));
+    cameraUniform.setMatrix4(mat4.invert(scratchMatrix, cameraNode.accumulatedTransform));
+
+    model.setMatrix4(cubeNode.accumulatedTransform);
+    gl.drawArrays(gl.TRIANGLES, 0, cubePoints);
+  });
+})();
+
+</script>
+
