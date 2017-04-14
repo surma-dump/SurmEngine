@@ -80,6 +80,7 @@
     .bindToIndex(2);
 
   const instancesVBO = sphereVAO.createVBO()
+    .setUsage(gl.DYNAMIC_DRAW)
     .bind();
 
   instancesVBO
