@@ -18,15 +18,6 @@
     return new Array(len).fill().map((_, i) => start + i);
   };
 
-  Array.prototype.groupBy = function(f) {
-    const acc = new Map();
-    this.forEach(v => {
-      const k = f(v);
-      acc.has(k) ? acc.get(k).push(v) : acc.set(k, [v]);
-    });
-    return acc;
-  };
-
   const vertexShader = fetch('vertex.glsl').then(r => r.text());
   const fragmentShader = fetch('fragment.glsl').then(r => r.text());
   const modules = [
@@ -161,9 +152,9 @@
 
   const viewUniform = program.referenceUniform('view');
   const cameraUniform = program.referenceUniform('camera');
-  const lightPosition = program.referenceUniform('lightPosition');
+  const lightPositionUniform = program.referenceUniform('lightPosition');
 
-  const lightRotation = scene.find(e => e.name === 'lightRotation');
+  const lightRotation = scene.findByName('lightRotation');
 
   gl.clearColor(0, 0, 0, 1);
   gl.enable(gl.DEPTH_TEST);
@@ -177,31 +168,30 @@
 
   const scratchMatrix = mat4.create();
   const scratchVector = vec4.create();
-  const instancesScratch = new Float32Array(16 * numSpheres);
+  const instancesScratch = new Float32Array(4 * 4 * numSpheres);
   window.loop = Helpers.loop(delta => {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     lightRotation.rotate([0, 1, 0], 360/5 * delta/1000);
 
-    const flatScene = scene.flatten();
-    const cameraNode = flatScene.find(entry => entry.node.name === 'camera');
-    const lightNode = flatScene.find(entry => entry.node.name === 'light');
-    vec4.set(scratchVector, 0, 0, 0, 1);
-    lightPosition.setVector4(vec4.transformMat4(scratchVector, scratchVector, lightNode.accumulatedTransform));
-    cameraUniform.setMatrix4(mat4.invert(scratchMatrix, cameraNode.accumulatedTransform));
+    for (let {node, accumulatedTransform} of scene.propagate()) {
+      switch(node.name) {
+        case 'camera':
+          cameraUniform.setMatrix4(mat4.invert(scratchMatrix, accumulatedTransform));
+          break;
+        case 'light':
+          vec4.set(scratchVector, 0, 0, 0, 1);
+          lightPositionUniform.setVector4(vec4.transformMat4(scratchVector, scratchVector, accumulatedTransform));
+          break;
+        case 'sphere':
+          instancesScratch.set(accumulatedTransform, instancesVBO.stride / 4 * node.data.idx);
+          break;
+      }
+    }
 
-    flatScene
-      .filter(entry => 'vao' in entry.node.data)
-      .groupBy(entry => entry.node.data.vao)
-      .forEach((entries, vao) => {
-        vao.bind();
-        entries.forEach(entry => {
-          instancesScratch.set(entry.accumulatedTransform, instancesVBO.stride / 4 * entry.node.data.idx);
-        });
-        instancesVBO
-          .bind()
-          .setData(instancesScratch);
-        gl.drawArraysInstanced(gl.TRIANGLES, 0, spherePoints, numSpheres);
-      });
+    instancesVBO
+      .bind()
+      .setData(instancesScratch);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, spherePoints, numSpheres);
   });
 })();
 
