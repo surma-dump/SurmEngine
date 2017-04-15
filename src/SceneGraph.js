@@ -10,7 +10,7 @@ module.exports = (async function() {
       return this;
     }
 
-    *propagate() {
+    * propagate() {
       yield* this._root._propagate(this._scratch);
     }
 
@@ -85,7 +85,7 @@ module.exports = (async function() {
       return this.find(n => n.name === name);
     }
 
-    *_propagate(transform) {
+    * _propagate(transform) {
       mat4.multiply(this._scratch, transform, this._transform);
       yield {
           node: this,

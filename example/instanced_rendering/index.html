@@ -40,17 +40,18 @@
     .setFragmentShader(await fragmentShader);
 
   const {NormalizedCubeSphere} = await modules['Mesh'];
-  const {VAO} = await modules['VAO'];
+  const subdivisions = 10;
+  const numSpherePoints = NormalizedCubeSphere.numPoints({subdivisions});
+  const sphereVertices = NormalizedCubeSphere.vertices(new Float32Array(numSpherePoints * 3), {subdivisions});
 
-  let subdivisions = 10;
-  let spherePoints = NormalizedCubeSphere.numPoints({subdivisions});
+  const {VAO} = await modules['VAO'];
   const sphereVAO = new VAO(gl);
   sphereVAO.bind();
 
   // Vertices
   sphereVAO.createVBO()
     .bind()
-    .setData(NormalizedCubeSphere.vertices({subdivisions}).data)
+    .setData(sphereVertices)
     .setItemSize(3)
     .bindToIndex(0);
 
@@ -58,7 +59,7 @@
   sphereVAO.createVBO()
     .bind()
     .setData(
-      new Float32Array(spherePoints * 4).fill(1)
+      new Float32Array(numSpherePoints * 4).fill(1)
     )
     .setItemSize(4)
     .bindToIndex(1);
@@ -66,7 +67,7 @@
   // Normals
   sphereVAO.createVBO()
     .bind()
-    .setData(NormalizedCubeSphere.normals({subdivisions}).data)
+    .setData(sphereVertices)
     .setItemSize(3)
     .bindToIndex(2);
 
@@ -140,7 +141,7 @@
     const y = Math.floor(i / gridLength);
     const x = i % gridLength;
     scene.add(
-      new Node('sphere', {numPoints: spherePoints, idx: i, vao: sphereVAO})
+      new Node('sphere', {idx: i})
         .move([-(gridLength-1)*5 + x*10, 5, -(gridLength-1)*5 + y*10])
         .scale(4)
     );
@@ -191,7 +192,7 @@
     instancesVBO
       .bind()
       .setData(instancesScratch);
-    gl.drawArraysInstanced(gl.TRIANGLES, 0, spherePoints, numSpheres);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, numSpherePoints, numSpheres);
   });
 })();
 

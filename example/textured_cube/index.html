@@ -43,16 +43,19 @@
     .setFragmentShader(await fragmentShader);
 
   const {Cube} = await modules['Mesh'];
-  const {VAO} = await modules['VAO'];
 
-  let cubePoints = Cube.numPoints();
+  const cubePoints = Cube.numPoints();
+  const cubeVertices = Cube.vertices(new Float32Array(cubePoints * 3));
+  const cubeNormals = Cube.normals(new Float32Array(cubePoints * 3));
+
+  const {VAO} = await modules['VAO'];
   const cubeVAO = new VAO(gl);
   cubeVAO.bind();
 
   // Vertices
   cubeVAO.createVBO()
     .bind()
-    .setData(Cube.vertices().data)
+    .setData(cubeVertices)
     .setItemSize(3)
     .bindToIndex(0);
 
@@ -78,7 +81,7 @@
   // Normals
   cubeVAO.createVBO()
     .bind()
-    .setData(Cube.normals().data)
+    .setData(cubeNormals)
     .setItemSize(3)
     .bindToIndex(2);
 

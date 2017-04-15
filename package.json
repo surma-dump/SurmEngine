@@ -14,7 +14,7 @@
   },
   "scripts": {
     "build": "npm run minify",
-    "minify": "babili -d dist src",
+    "minify": "babili --source-maps --minified --compact -d dist src",
     "test": "eslint .",
     "watch": "npm-watch"
   },

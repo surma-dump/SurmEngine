@@ -6,10 +6,9 @@ module.exports = (async function() {
       const numPoints = numTriangles * 3;
       return numPoints;
     }
-    static vertices(opts = {subdivisions: 1}) {
-      const numPoints = XYPlane.numPoints(opts);
+
+    static vertices(data, opts = {subdivisions: 1}) {
       const gap = 2 / opts.subdivisions;
-      const data = new Float32Array(numPoints * 3); // 3 coordinates
       for(let x = 0; x < opts.subdivisions; x++) {
         for(let y = 0; y < opts.subdivisions; y++) {
           data[(y * opts.subdivisions + x) * 18 +  0] = -1 + gap * x;
@@ -33,18 +32,11 @@ module.exports = (async function() {
           data[(y * opts.subdivisions + x) * 18 + 17] = 0;
         }
       }
-      return {
-        numPoints,
-        data,
-      };
+      return data;
     }
 
-    static normals(opts = {subdivisions: 1}) {
-      const numPoints = XYPlane.numPoints(opts);
-      return {
-        numPoints,
-        data: new Float32Array(numPoints * 3).map((_, idx) => idx % 3 === 2?1:0),
-      };
+    static normals(data, opts = {subdivisions: 1}) {
+      return data.map((_, idx) => idx % 3 === 2?1:0);
     }
   }
 
@@ -63,50 +55,43 @@ module.exports = (async function() {
       return XYPlane.numPoints(opts) * 6;
     }
 
-    static vertices(opts = {subdivisions: 1}) {
-      const xyPlane = XYPlane.vertices(opts);
-      const data = new Float32Array(xyPlane.data.length * 6);
-      data.set(xyPlane.data);
+    static vertices(data, opts = {subdivisions: 1}) {
+      const floatsPerPlane = XYPlane.numPoints(opts)*3;
+      const bytesPerPlane = floatsPerPlane * 4;
+      XYPlane.vertices(data, opts);
       for(let i = 1; i <= 6; i++)
-        data.copyWithin(i*xyPlane.data.length, 0, xyPlane.data.length);
+        data.copyWithin(i*floatsPerPlane, 0, floatsPerPlane);
 
       const transforms = Cube._transforms();
       transforms.forEach((m, idx) => {
-        const view = new Float32Array(data.buffer, idx * xyPlane.data.byteLength, xyPlane.data.length);
-        for(let i = 0; i < xyPlane.data.length; i+=3) {
+        const view = new Float32Array(data.buffer, idx * bytesPerPlane, floatsPerPlane);
+        for(let i = 0; i < floatsPerPlane; i+=3) {
           const v = new Float32Array(view.buffer, view.byteOffset + i * 4, 3);
           vec3.transformMat4(v, v, m);
         }
       });
 
-      return {
-        numPoints: xyPlane.numPoints * 6,
-        data,
-      };
+      return data;
     }
 
-    static normals(opts = {subdivisions: 1}) {
-      const xyPlane = XYPlane.normals(opts);
-      const data = new Float32Array(xyPlane.data.length * 6);
-      data.set(xyPlane.data);
+    static normals(data, opts = {subdivisions: 1}) {
+      const floatsPerPlane = XYPlane.numPoints(opts) * 3;
+      const bytesPerPlane = floatsPerPlane * 4;
+      XYPlane.normals(data, opts);
       for(let i = 1; i <= 6; i++)
-        data.copyWithin(i*xyPlane.data.length, 0, xyPlane.data.length);
+        data.copyWithin(i*floatsPerPlane, 0, floatsPerPlane);
 
       const transforms = Cube._transforms();
       transforms.forEach((m, idx) => {
-        const view = new Float32Array(data.buffer, idx * xyPlane.data.byteLength, xyPlane.data.length);
-        for(let i = 0; i < xyPlane.data.length; i+=3) {
+        const view = new Float32Array(data.buffer, idx * bytesPerPlane, floatsPerPlane);
+        for(let i = 0; i < floatsPerPlane; i+=3) {
           const v = new Float32Array(view.buffer, view.byteOffset + i * 4, 3);
           vec3.transformMat4(v, v, m);
         }
       });
 
-      return {
-        numPoints: xyPlane.numPoints * 6,
-        data,
-      };
+      return data;
     }
-
   }
 
   class NormalizedCubeSphere {
@@ -114,17 +99,18 @@ module.exports = (async function() {
       return Cube.numPoints(opts);
     }
 
-    static vertices(opts = {subdivisions: 10}) {
-      const cube = Cube.vertices(opts);
-      for(let i = 0; i < cube.numPoints; i++) {
-        const vertex = new Float32Array(cube.data.buffer, i * 3 * 4, 3);
+    static vertices(data, opts = {subdivisions: 10}) {
+      const numPoints = Cube.numPoints(opts);
+      Cube.vertices(data, opts);
+      for(let i = 0; i < numPoints; i++) {
+        const vertex = new Float32Array(data.buffer, i * 3 * 4, 3);
         vec3.normalize(vertex, vertex);
       }
-      return cube;
+      return data;
     }
 
-    static normals(opts = {subdivisions: 10}) {
-      return NormalizedCubeSphere.vertices(opts);
+    static normals(data, opts = {subdivisions: 10}) {
+      return NormalizedCubeSphere.vertices(data, opts);
     }
 
   }
