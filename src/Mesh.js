@@ -70,7 +70,7 @@ module.exports = (async function() {
       for(let i = 1; i <= 6; i++)
         data.copyWithin(i*xyPlane.data.length, 0, xyPlane.data.length);
 
-      const transforms = Cube._transforms();;
+      const transforms = Cube._transforms();
       transforms.forEach((m, idx) => {
         const view = new Float32Array(data.buffer, idx * xyPlane.data.byteLength, xyPlane.data.length);
         for(let i = 0; i < xyPlane.data.length; i+=3) {

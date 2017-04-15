@@ -1,5 +1,14 @@
 module.exports = (async function() {
   class Helpers {
+    static loadImage(path) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = _ => resolve(img);
+        img.onerror = reject;
+        img.src = path;
+      });
+    }
+
     static loop(f) {
       let last;
       let cntinue = true;

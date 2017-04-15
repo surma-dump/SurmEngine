@@ -1,4 +1,4 @@
-module.exports = (async function(scope) {
+module.exports = (async function() {
   class Camera {
     constructor() {
       this._aspectRatio = 1;

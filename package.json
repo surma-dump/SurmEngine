@@ -9,12 +9,17 @@
     "eslint": "^3.19.0",
     "eslint-config-google": "^0.7.1",
     "gl-matrix": "git+https://github.com/toji/gl-matrix",
+    "npm-watch": "^0.1.8",
     "systemjs": "^0.20.11"
   },
   "scripts": {
     "build": "npm run minify",
     "minify": "babili -d dist src",
-    "test": "eslint ."
+    "test": "eslint .",
+    "watch": "npm-watch"
+  },
+  "watch": {
+    "build": "src/*.js"
   },
   "repository": {
     "type": "git",

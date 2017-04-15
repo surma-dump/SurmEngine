@@ -98,6 +98,10 @@ module.exports = (async function() {
     setVector4(vec4) {
       this._gl.uniform4fv(this._ref, vec4);
     }
+
+    setInteger(i) {
+      this._gl.uniform1i(this._ref, i);
+    }
   }
 
   return {Program};
