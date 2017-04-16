@@ -1,0 +1,211 @@
+<!doctype html>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+  canvas {
+    width: 100vw;
+    height: 100vh;
+  }
+</style>
+<canvas></canvas>
+<script src="/node_modules/systemjs/dist/system.js"></script>
+<script src="/node_modules/gl-matrix/dist/gl-matrix-min.js"></script>
+<script>
+(async function() {
+  function coloredSquare(w, style) {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = w;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = style;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+
+  function range(start, to) {
+    return new Array(to-start).fill().map((_, i) => start + i);
+  };
+
+  const vertexShader = fetch('vertex.glsl').then(r => r.text());
+  const fragmentShader = fetch('fragment.glsl').then(r => r.text());
+  const modules = [
+    'VAO',
+    'Helpers',
+    'Camera',
+    'Input',
+    'Mesh',
+    'Program',
+    'SceneGraph',
+    'Texture',
+  ].reduce((acc, m) =>
+    Object.assign(acc, {[m]: SystemJS.import(`/dist/${m}.js`).then(m => m)}), {});
+
+  const canvas = document.querySelector('canvas');
+  window.gl = canvas.getContext('webgl2');
+
+  const {Program} = await modules['Program'];
+  const program = new Program(gl)
+    .setVertexShader(await vertexShader)
+    .setFragmentShader(await fragmentShader);
+
+  const {Cube} = await modules['Mesh'];
+  const cubePoints = Cube.numPoints();
+
+  const {VAO} = await modules['VAO'];
+  const cubeVAO = new VAO(gl);
+  cubeVAO.bind();
+
+  // Vertices
+  cubeVAO.createVBO()
+    .bind()
+    .setData(Cube.vertices(new Float32Array(cubePoints * 3)))
+    .setItemSize(3)
+    .bindToIndex(0);
+
+  // UVs
+  const uvArray = new Float32Array(cubePoints * 2);
+  range(0, 6).forEach(i => {
+    const subArray = new Float32Array(uvArray.buffer, i * 12 * 4, 12);
+    subArray.set([
+        0, 1,
+        1, 0,
+        0, 0,
+        0, 1,
+        1, 1,
+        1, 0,
+      ]);
+  });
+  cubeVAO.createVBO()
+    .bind()
+    .setData(uvArray)
+    .setItemSize(2)
+    .bindToIndex(1);
+
+  program
+    .bindInVariable('in_vertex', 0)
+    .bindInVariable('in_uv', 1)
+
+  const {Camera} = await modules['Camera'];
+  const camera =
+    new Camera()
+      .setAspectRatio(gl.canvas.width / gl.canvas.height)
+      .setFov(30)
+      .setNearPlane(0.1)
+      .setFarPlane(1000);
+
+  const {SceneGraph, Node} = await modules['SceneGraph'];
+  window.scene = new SceneGraph()
+    .add(
+      new Node('camera', camera)
+        .move([0, 0, 12])
+    );
+
+  const {Texture} = await modules['Texture'];
+  const numCubes = 4;
+  const textures = new Array(numCubes);
+
+  range(0, numCubes).forEach(i => {
+    scene
+      .add(
+        new Node(`cube${i}_translate`)
+          .add(
+            new Node(`cube${i}_rot_y`)
+              .add(
+                new Node(`cube${i}_rot_x`)
+                  .add(
+                    new Node(`cube${i}`, {texture: i})
+                  )
+              )
+          )
+          .move([-numCubes*2.5/2 + 2.5/2 + i * 2.5, 0, 0])
+      );
+  });
+
+  const numMipmaps = 10;
+  [
+    gl.NEAREST_MIPMAP_NEAREST,
+    gl.LINEAR_MIPMAP_NEAREST,
+    gl.NEAREST_MIPMAP_LINEAR,
+    gl.LINEAR_MIPMAP_LINEAR,
+  ].forEach((minFilter, cubeIdx) => {
+    textures[cubeIdx] = new Texture(gl)
+      .setTextureID(cubeIdx)
+      .activate()
+      .bind()
+      .setMaxMipmapLevel(numMipmaps)
+      .setMinFilter(minFilter)
+      .setParameters();
+      range(0, numMipmaps+1).forEach(level => {
+        const textureSize = 2048 / (1<<level);
+        const texture = coloredSquare(textureSize, `hsl(${level/numMipmaps * 360}, 100%, 50%)`);
+        textures[cubeIdx].uploadImage2D(level, texture);
+      });
+  });
+
+  program
+    .link()
+    .activate();
+
+  const viewUniform = program.referenceUniform('view');
+  const cameraUniform = program.referenceUniform('camera');
+  const modelUniform = program.referenceUniform('model');
+  const samplerUniform = program.referenceUniform('sampler');
+
+  const cameraObj = scene.findByName('camera');
+  const rotYs = new Array(numCubes);
+  const rotXs = new Array(numCubes);
+  range(0, numCubes).forEach(i => {
+    rotYs[i] = scene.findByName(`cube${i}_rot_y`);
+    rotXs[i] = scene.findByName(`cube${i}_rot_x`);
+  })
+  gl.clearColor(0, 0, 0, 1);
+  gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.CULL_FACE);
+  gl.cullFace(gl.BACK);
+  const {Helpers} = await modules['Helpers'];
+  Helpers.autosize(gl, _ => {
+    camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
+    viewUniform.setMatrix4(camera.viewMatrix);
+  });
+
+  const {KeyboardState, MouseController} = await modules['Input'];
+  const keyboard = new KeyboardState();
+  const mouse = new MouseController(gl);
+  canvas.addEventListener('click', _ => mouse.capture());
+
+  const scratchMatrix = mat4.create();
+  const scratchVector = vec4.create();
+  window.loop = Helpers.loop(delta => {
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    const factor = keyboard.isDown('ShiftLeft')?10:1;
+    if (keyboard.isDown('KeyA')) cameraObj.move([-factor*delta/1000, 0, 0]);
+    if (keyboard.isDown('KeyD')) cameraObj.move([ factor*delta/1000, 0, 0]);
+    if (keyboard.isDown('KeyQ')) cameraObj.move([0,  factor*delta/1000, 0]);
+    if (keyboard.isDown('KeyE')) cameraObj.move([0, -factor*delta/1000, 0]);
+    if (keyboard.isDown('KeyW')) cameraObj.move([0, 0, -factor*delta/1000]);
+    if (keyboard.isDown('KeyS')) cameraObj.move([0, 0,  factor*delta/1000]);
+    if (keyboard.isDown('Escape')) mouse.free();
+
+    const {dx, dy} = mouse.delta();
+    range(0, numCubes).forEach(i => {
+      rotXs[i].rotate([1, 0, 0], dy * factor * delta/1000);
+      rotYs[i].rotate([0, 1, 0], dx * factor * delta/1000);
+    })
+
+    for(let {node, accumulatedTransform} of scene.propagate()) {
+      if (node.name === 'camera')
+        cameraUniform.setMatrix4(mat4.invert(scratchMatrix, accumulatedTransform));
+      else if (/^cube[0-9]$/.test(node.name)) {
+        samplerUniform.setInteger(node.data.texture);
+        modelUniform.setMatrix4(accumulatedTransform);
+        gl.drawArrays(gl.TRIANGLES, 0, cubePoints);
+      }
+    }
+  });
+
+})();
+
+</script>
+

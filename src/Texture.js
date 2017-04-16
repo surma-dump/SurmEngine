@@ -6,7 +6,9 @@ module.exports = (async function() {
       this._type = this._gl.TEXTURE_2D;
       this._internalFormat = this._gl.RGBA;
       this._textureID = 0;
-      this._maxMipmapLevel = 0;
+      this._maxMipmapLevel = 1000;
+      this._magFilter = this._gl.LINEAR;
+      this._minFilter = this._gl.NEAREST_MIPMAP_LINEAR;
     }
 
     get VALID_TYPES() {
@@ -76,6 +78,24 @@ module.exports = (async function() {
       return this;
     }
 
+    get magFilter() {
+      return this._magFilter;
+    }
+
+    setMagFilter(val) {
+      this._magFilter = val;
+      return this;
+    }
+
+    get minFilter() {
+      return this._minFilter;
+    }
+
+    setMinFilter(val) {
+      this._minFilter = val;
+      return this;
+    }
+
     activate() {
       this._gl.activeTexture(this._gl[`TEXTURE${this._textureID}`]);
       return this;
@@ -88,11 +108,18 @@ module.exports = (async function() {
 
     setParameters() {
       this._gl.texParameteri(this._type, this._gl.TEXTURE_MAX_LEVEL, this._maxMipmapLevel);
+      this._gl.texParameteri(this._type, this._gl.TEXTURE_MAG_FILTER, this._magFilter);
+      this._gl.texParameteri(this._type, this._gl.TEXTURE_MIN_FILTER, this._minFilter);
       return this;
     }
 
     uploadImage2D(level, img) {
       this._gl.texImage2D(this._type, level, this._internalFormat, this._gl.RGBA, this._gl.UNSIGNED_BYTE, img);
+      return this;
+    }
+
+    generateMipmap() {
+      this._gl.generateMipmap(this._type);
       return this;
     }
 
