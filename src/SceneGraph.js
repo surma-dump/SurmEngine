@@ -1,32 +1,8 @@
 module.exports = (async function() {
-  class SceneGraph {
-    constructor() {
-      this._root = new Node('_root');
-      this._scratch = mat4.create();
-    }
-
-    add(node) {
-      this._root.add(node);
-      return this;
-    }
-
-    * propagate() {
-      yield* this._root._propagate(this._scratch);
-    }
-
-    find(f) {
-      return this._root.find(f);
-    }
-
-    findByName(name) {
-      return this.find(n => n.name === name);
-    }
-  }
-
   class Node {
     constructor(name, data = {}) {
       this._transform = mat4.create();
-      this._scratch = mat4.create();
+      this._accumulatedTransform = mat4.create();
       this._children = [];
       this.name = name;
       this.data = data;
@@ -48,6 +24,10 @@ module.exports = (async function() {
     setTransform(val) {
       this._transform = val;
       return this;
+    }
+
+    get accumulatedTransform() {
+      return this._accumulatedTransform;
     }
 
     move(v) {
@@ -85,16 +65,17 @@ module.exports = (async function() {
       return this.find(n => n.name === name);
     }
 
-    * _propagate(transform) {
-      mat4.multiply(this._scratch, transform, this._transform);
-      yield {
-          node: this,
-          accumulatedTransform: this._scratch,
-      };
+    * propagate(transform) {
+      if(transform) {
+        mat4.multiply(this._accumulatedTransform, transform, this._transform);
+      } else {
+        this._accumulatedTransform.set(this._transform);
+      }
+      yield this;
       for(let childNode of this._children)
-        yield* childNode._propagate(this._scratch);
+        yield* childNode.propagate(this._accumulatedTransform);
     }
   }
 
-  return {SceneGraph, Node};
+  return {Node};
 })();

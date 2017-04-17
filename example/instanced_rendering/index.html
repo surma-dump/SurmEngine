@@ -120,8 +120,8 @@
       .setNearPlane(0.1)
       .setFarPlane(1000);
 
-  const {SceneGraph, Node} = await modules['SceneGraph'];
-  window.scene = new SceneGraph()
+  const {Node} = await modules['SceneGraph'];
+  window.scene = new Node()
     .add(
       new Node('lightRotation')
         .add(
@@ -156,6 +156,8 @@
   const lightPositionUniform = program.referenceUniform('lightPosition');
 
   const lightRotation = scene.findByName('lightRotation');
+  const light = scene.findByName('light');
+  const cameraObj = scene.findByName('camera');
 
   gl.clearColor(0, 0, 0, 1);
   gl.enable(gl.DEPTH_TEST);
@@ -174,21 +176,13 @@
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     lightRotation.rotate([0, 1, 0], 360/5 * delta/1000);
 
-    for (let {node, accumulatedTransform} of scene.propagate()) {
-      switch(node.name) {
-        case 'camera':
-          cameraUniform.setMatrix4(mat4.invert(scratchMatrix, accumulatedTransform));
-          break;
-        case 'light':
-          vec4.set(scratchVector, 0, 0, 0, 1);
-          lightPositionUniform.setVector4(vec4.transformMat4(scratchVector, scratchVector, accumulatedTransform));
-          break;
-        case 'sphere':
-          instancesScratch.set(accumulatedTransform, instancesVBO.stride / 4 * node.data.idx);
-          break;
-      }
+    for (let node of scene.propagate()) {
+      if(node.name === 'sphere')
+          instancesScratch.set(node.accumulatedTransform, instancesVBO.stride / 4 * node.data.idx);
     }
-
+    cameraUniform.setMatrix4(mat4.invert(scratchMatrix, cameraObj.accumulatedTransform));
+    vec4.set(scratchVector, 0, 0, 0, 1);
+    lightPositionUniform.setVector4(vec4.transformMat4(scratchVector, scratchVector, light.accumulatedTransform));
     instancesVBO
       .bind()
       .setData(instancesScratch);

@@ -94,8 +94,8 @@
       .setNearPlane(0.1)
       .setFarPlane(1000);
 
-  const {SceneGraph, Node} = await modules['SceneGraph'];
-  window.scene = new SceneGraph()
+  const {Node} = await modules['SceneGraph'];
+  window.scene = new Node()
     .add(
       new Node('camera', camera)
         .move([0, 0, 12])
@@ -195,12 +195,12 @@
       rotYs[i].rotate([0, 1, 0], dx * factor * delta/1000);
     })
 
-    for(let {node, accumulatedTransform} of scene.propagate()) {
+    for(let node of scene.propagate()) {
       if (node.name === 'camera')
-        cameraUniform.setMatrix4(mat4.invert(scratchMatrix, accumulatedTransform));
+        cameraUniform.setMatrix4(mat4.invert(scratchMatrix, node.accumulatedTransform));
       else if (/^cube[0-9]$/.test(node.name)) {
         samplerUniform.setInteger(node.data.texture);
-        modelUniform.setMatrix4(accumulatedTransform);
+        modelUniform.setMatrix4(node.accumulatedTransform);
         gl.drawArrays(gl.TRIANGLES, 0, cubePoints);
       }
     }

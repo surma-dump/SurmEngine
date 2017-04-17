@@ -43,10 +43,7 @@
     .setFragmentShader(await fragmentShader);
 
   const {Cube} = await modules['Mesh'];
-
   const cubePoints = Cube.numPoints();
-  const cubeVertices = Cube.vertices(new Float32Array(cubePoints * 3));
-  const cubeNormals = Cube.normals(new Float32Array(cubePoints * 3));
 
   const {VAO} = await modules['VAO'];
   const cubeVAO = new VAO(gl);
@@ -55,7 +52,7 @@
   // Vertices
   cubeVAO.createVBO()
     .bind()
-    .setData(cubeVertices)
+    .setData(Cube.vertices(new Float32Array(cubePoints * 3)))
     .setItemSize(3)
     .bindToIndex(0);
 
@@ -81,7 +78,7 @@
   // Normals
   cubeVAO.createVBO()
     .bind()
-    .setData(cubeNormals)
+    .setData(Cube.normals(new Float32Array(cubePoints * 3)))
     .setItemSize(3)
     .bindToIndex(2);
 
@@ -98,8 +95,8 @@
       .setNearPlane(0.1)
       .setFarPlane(1000);
 
-  const {SceneGraph, Node} = await modules['SceneGraph'];
-  window.scene = new SceneGraph()
+  const {Node} = await modules['SceneGraph'];
+  window.scene = new Node()
     .add(
       new Node('light')
         .move([100, 15, 0])
@@ -110,7 +107,7 @@
         .rotate([1, 0, 0], -25)
     )
     .add (
-      new Node('cube', {vao: cubeVAO, numPoints: cubePoints})
+      new Node('cube')
     )
 
   program
@@ -130,7 +127,8 @@
     .activate()
     .bind()
     .setParameters()
-    .uploadImage2D(0, await image);
+    .uploadImage2D(0, await image)
+    .generateMipmap();
 
   gl.clearColor(0, 0, 0, 1);
   gl.enable(gl.DEPTH_TEST);
@@ -143,6 +141,8 @@
 
   const scratchMatrix = mat4.create();
   const scratchVector = vec4.create();
+  const cameraObj = scene.findByName('camera');
+  const light = scene.findByName('light');
   const cube = scene.findByName('cube');
   window.loop = Helpers.loop(delta => {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -150,20 +150,11 @@
     cube.rotate([0, 1, 0], 45 * delta/1000);
     cube.rotate([1, 0, 0], 19 * delta/1000);
 
-    for(let {node, accumulatedTransform} of scene.propagate()) {
-      switch(node.name) {
-        case 'camera':
-          cameraUniform.setMatrix4(mat4.invert(scratchMatrix, accumulatedTransform));
-        break;
-        case 'light':
-          vec4.set(scratchVector, 0, 0, 0, 1);
-          lightPositionUniform.setVector4(vec4.transformMat4(scratchVector, scratchVector, accumulatedTransform));
-        break;
-        case 'cube':
-          modelUniform.setMatrix4(accumulatedTransform);
-        break;
-      }
-    }
+    for(let _ of scene.propagate());
+    cameraUniform.setMatrix4(mat4.invert(scratchMatrix, cameraObj.accumulatedTransform));
+    vec4.set(scratchVector, 0, 0, 0, 1);
+    lightPositionUniform.setVector4(vec4.transformMat4(scratchVector, scratchVector, light.accumulatedTransform));
+    modelUniform.setMatrix4(cube.accumulatedTransform);
     gl.drawArrays(gl.TRIANGLES, 0, cubePoints);
   });
 })();
