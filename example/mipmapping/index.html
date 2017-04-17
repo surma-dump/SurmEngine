@@ -122,7 +122,8 @@
       );
   });
 
-  const numMipmaps = 10;
+  const numMipmaps = 8;
+  const maxTextureSize = 512;
   [
     gl.NEAREST_MIPMAP_NEAREST,
     gl.LINEAR_MIPMAP_NEAREST,
@@ -137,7 +138,7 @@
       .setMinFilter(minFilter)
       .setParameters();
       range(0, numMipmaps+1).forEach(level => {
-        const textureSize = 2048 / (1<<level);
+        const textureSize = maxTextureSize / (1<<level);
         const texture = coloredSquare(textureSize, `hsl(${level/numMipmaps * 360}, 100%, 50%)`);
         textures[cubeIdx].uploadImage2D(level, texture);
       });
