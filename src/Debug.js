@@ -32,6 +32,16 @@ module.exports = (async function() {
       const prototype = Object.getPrototypeOf(obj);
       if(prototype.constructor === Float32Array)
         return new Float32Array(obj);
+      if(prototype.constructor === HTMLImageElement) {
+        const canvas = document.createElement('canvas');
+        [canvas.width, canvas.height] = [obj.naturalWidth, obj.naturalHeight];
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(obj, 0, 0);
+        return {
+          name: 'HTMLImageElement',
+          value: canvas.toDataURL(),
+        };
+      }
       if([Number, String, Boolean].some(v => prototype.constructor === v))
         return {
           value: obj,

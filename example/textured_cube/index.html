@@ -29,11 +29,15 @@
     'Program',
     'SceneGraph',
     'Texture',
+    'Debug',
   ].reduce((acc, m) =>
     Object.assign(acc, {[m]: SystemJS.import(`/dist/${m}.js`).then(m => m)}), {});
 
   const canvas = document.querySelector('canvas');
-  window.gl = canvas.getContext('webgl2');
+  window._gl = canvas.getContext('webgl2');
+  const {GlLogger} = await modules['Debug'];
+  window.logger = new GlLogger(_gl);
+  window.gl = logger.proxy;
 
   const {Helpers} = await modules['Helpers'];
   const image = Helpers.loadImage('uvgrid.jpg');
@@ -156,6 +160,7 @@
     lightPositionUniform.setVector4(vec4.transformMat4(scratchVector, scratchVector, light.accumulatedTransform));
     modelUniform.setMatrix4(cube.accumulatedTransform);
     gl.drawArrays(gl.TRIANGLES, 0, cubePoints);
+    logger.filter = _ => false;
   });
 })();
 
