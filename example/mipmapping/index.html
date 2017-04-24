@@ -150,8 +150,12 @@
 
   const viewUniform = program.referenceUniform('view');
   const cameraUniform = program.referenceUniform('camera');
+  const samplerUniforms = range(0, 4).map(i => program.referenceUniform(`samplers[${i}]`));
   const modelUniform = program.referenceUniform('model');
-  const samplerUniform = program.referenceUniform('sampler');
+  const samplerIDUniform = program.referenceUniform('samplerID');
+  samplerUniforms.forEach((sampler, i) => {
+    sampler.setInteger(i);
+  });
 
   const cameraObj = scene.findByName('camera');
   const rotYs = new Array(numCubes);
@@ -199,7 +203,7 @@
       if (node.name === 'camera')
         cameraUniform.setMatrix4(mat4.invert(scratchMatrix, node.accumulatedTransform));
       else if (/^cube[0-9]$/.test(node.name)) {
-        samplerUniform.setInteger(node.data.texture);
+        samplerIDUniform.setInteger(node.data.texture);
         modelUniform.setMatrix4(node.accumulatedTransform);
         gl.drawArrays(gl.TRIANGLES, 0, cubePoints);
       }
