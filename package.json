@@ -9,8 +9,7 @@
     "eslint": "^3.19.0",
     "eslint-config-google": "^0.7.1",
     "gl-matrix": "git+https://github.com/toji/gl-matrix",
-    "npm-watch": "^0.1.8",
-    "systemjs": "^0.20.11"
+    "npm-watch": "^0.1.8"
   },
   "scripts": {
     "build": "npm run minify",

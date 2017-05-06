@@ -10,46 +10,35 @@
   }
 </style>
 <canvas></canvas>
-<script src="/node_modules/systemjs/dist/system.js"></script>
 <script src="/node_modules/gl-matrix/dist/gl-matrix-min.js"></script>
-<script>
-(async function() {
+<script type="module">
+import {VAO} from '/dist/VAO.js';
+import {Helpers} from '/dist/Helpers.js';
+import {Camera} from '/dist/Camera.js';
+import {Cube} from '/dist/Mesh.js';
+import {Program} from '/dist/Program.js';
+import {Node} from '/dist/SceneGraph.js';
+import {Texture} from '/dist/Texture.js';
+import {GlLogger} from '/dist/Debug.js';(async function() {
   function range(start, len) {
     return new Array(len).fill().map((_, i) => start + i);
   };
 
   const vertexShader = fetch('vertex.glsl').then(r => r.text());
   const fragmentShader = fetch('fragment.glsl').then(r => r.text());
-  const modules = [
-    'VAO',
-    'Helpers',
-    'Camera',
-    'Input',
-    'Mesh',
-    'Program',
-    'SceneGraph',
-    'Texture',
-    'Debug',
-  ].reduce((acc, m) =>
-    Object.assign(acc, {[m]: SystemJS.import(`/dist/${m}.js`).then(m => m)}), {});
 
   const canvas = document.querySelector('canvas');
   window._gl = canvas.getContext('webgl2');
-  const {GlLogger} = await modules['Debug'];
   window.logger = new GlLogger(_gl);
   window.gl = logger.proxy;
 
-  const {Helpers} = await modules['Helpers'];
   const image = Helpers.loadImage('uvgrid.jpg');
-  const {Program} = await modules['Program'];
   const program = new Program(gl)
     .setVertexShader(await vertexShader)
     .setFragmentShader(await fragmentShader);
 
-  const {Cube} = await modules['Mesh'];
   const cubePoints = Cube.numPoints();
 
-  const {VAO} = await modules['VAO'];
   const cubeVAO = new VAO(gl);
   cubeVAO.bind();
 
@@ -91,7 +80,6 @@
     .bindInVariable('in_uv', 1)
     .bindInVariable('in_normal', 2)
 
-  const {Camera} = await modules['Camera'];
   const camera =
     new Camera()
       .setAspectRatio(gl.canvas.width / gl.canvas.height)
@@ -99,7 +87,6 @@
       .setNearPlane(0.1)
       .setFarPlane(1000);
 
-  const {Node} = await modules['SceneGraph'];
   window.scene = new Node()
     .add(
       new Node('light')
@@ -125,7 +112,6 @@
   const samplerUniform = program.referenceUniform('sampler');
   samplerUniform.setInteger(0);
 
-  const {Texture} = await modules['Texture'];
   const texture = new Texture(gl);
   texture
     .activate()

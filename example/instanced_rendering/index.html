@@ -10,9 +10,15 @@
   }
 </style>
 <canvas></canvas>
-<script src="/node_modules/systemjs/dist/system.js"></script>
 <script src="/node_modules/gl-matrix/dist/gl-matrix-min.js"></script>
-<script>
+<script type="module">
+import {VAO} from '/dist/VAO.js';
+import {Helpers} from '/dist/Helpers.js';
+import {Camera} from '/dist/Camera.js';
+import {NormalizedCubeSphere} from '/dist/Mesh.js';
+import {Program} from '/dist/Program.js';
+import {Node} from '/dist/SceneGraph.js';
+
 (async function() {
   function range(start, len) {
     return new Array(len).fill().map((_, i) => start + i);
@@ -20,31 +26,18 @@
 
   const vertexShader = fetch('vertex.glsl').then(r => r.text());
   const fragmentShader = fetch('fragment.glsl').then(r => r.text());
-  const modules = [
-    'VAO',
-    'Helpers',
-    'Camera',
-    'Input',
-    'Mesh',
-    'Program',
-    'SceneGraph',
-  ].reduce((acc, m) =>
-    Object.assign(acc, {[m]: SystemJS.import(`/dist/${m}.js`).then(m => m)}), {});
 
   const canvas = document.querySelector('canvas');
   window.gl = canvas.getContext('webgl2');
 
-  const {Program} = await modules['Program'];
   const program = new Program(gl)
     .setVertexShader(await vertexShader)
     .setFragmentShader(await fragmentShader);
 
-  const {NormalizedCubeSphere} = await modules['Mesh'];
   const subdivisions = 10;
   const numSpherePoints = NormalizedCubeSphere.numPoints({subdivisions});
   const sphereVertices = NormalizedCubeSphere.vertices(new Float32Array(numSpherePoints * 3), {subdivisions});
 
-  const {VAO} = await modules['VAO'];
   const sphereVAO = new VAO(gl);
   sphereVAO.bind();
 
@@ -112,7 +105,6 @@
     .bindInVariable('model[8]', 5)
     .bindInVariable('model[12]', 6);
 
-  const {Camera} = await modules['Camera'];
   const camera =
     new Camera()
       .setAspectRatio(gl.canvas.width / gl.canvas.height)
@@ -120,7 +112,6 @@
       .setNearPlane(0.1)
       .setFarPlane(1000);
 
-  const {Node} = await modules['SceneGraph'];
   window.scene = new Node()
     .add(
       new Node('lightRotation')
@@ -163,7 +154,6 @@
   gl.enable(gl.DEPTH_TEST);
   gl.enable(gl.CULL_FACE);
   gl.cullFace(gl.BACK);
-  const {Helpers} = await modules['Helpers'];
   Helpers.autosize(gl, _ => {
     camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
     viewUniform.setMatrix4(camera.viewMatrix);
