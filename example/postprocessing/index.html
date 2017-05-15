@@ -50,7 +50,7 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     .activate();
 
 
-  const [ppProgram, ppVAO] = await (async _ => {
+  const [ppProgram, ppVAO, ppUniforms] = await (async _ => {
     const program = new Program(gl)
       .setVertexShader(await fetch('postprocessing.vertex.glsl').then(r => r.text()))
       .setFragmentShader(await fetch('postprocessing.fragment.glsl').then(r => r.text()));
@@ -74,7 +74,7 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
       .activate();
 
     uniforms.get('sampler').setInteger(textureIndex.forName('fbo_color'));
-    return [program, vao];
+    return [program, vao, uniforms];
   })();
   program.activate();
 
@@ -129,7 +129,6 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
 
   Helpers.autosize(gl, _ => {
     camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   });
 
   const keyboard = new KeyboardState();
@@ -156,7 +155,10 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
   gl.enable(gl.CULL_FACE);
   gl.cullFace(gl.BACK);
 
+  let totalTime = 0;
   window.loop = Helpers.loop(delta => {
+    totalTime += delta;
+    gl.viewport(0, 0, p2width, p2height);
     trackballCamera.update(delta);
     program.activate();
     // Render scene to FBO using first program
@@ -168,8 +170,10 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     // Render FBO to screen using second program
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    // gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     ppProgram.activate();
     ppVAO.bind();
+    ppUniforms.get('time').setFloat(totalTime);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   });
 

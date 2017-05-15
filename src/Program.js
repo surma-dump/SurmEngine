@@ -101,6 +101,10 @@ class Uniform {
   setInteger(i) {
     this._gl.uniform1i(this._ref, i);
   }
+
+  setFloat(f) {
+    this._gl.uniform1f(this._ref, f);
+  }
 }
 
 export class ProgramUniformCache {
