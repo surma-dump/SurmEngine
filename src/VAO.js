@@ -2,11 +2,9 @@ export class VAO {
   constructor(gl) {
     this._gl = gl;
     this._vao = this._gl.createVertexArray();
-    this.bind();
   }
 
   createVBO() {
-    this.bind();
     return new VBO(this._gl, this);
   }
 
@@ -21,7 +19,6 @@ class VBO {
     this._gl = gl;
     this._vao = vao;
     this._vbo = this._gl.createBuffer();
-    this.bind();
     this._itemSize = 4;
     this._type = this._gl.FLOAT;
     this._usage = this._gl.STATIC_DRAW;

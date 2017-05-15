@@ -50,7 +50,7 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     .bindInVariable('in_normal', vaoIndex.forName('normal'));
 
   const plane = createPlane(gl, vaoIndex);
-  const sphere = createSphere(gl, vaoIndex);
+  const sphere = {}; //createSphere(gl, vaoIndex);
 
   const camera =
     new Camera()
