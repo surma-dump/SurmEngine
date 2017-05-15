@@ -41,7 +41,7 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
   const vaoIndex = new IndexManager();
   const textureIndex = new IndexManager();
   const plane = createPlane(gl, vaoIndex);
-  // const sphere = createSphere(gl, vaoIndex);
+  const sphere = createSphere(gl, vaoIndex);
   program
     .bindInVariable('in_vertex', vaoIndex.forName('vertex'))
     .bindInVariable('in_uv', vaoIndex.forName('uv'))
@@ -102,6 +102,7 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
                     )
                 )
             )
+            .move([0, 0, 2])
         )
         .move([0, 1, 0])
     )
@@ -116,7 +117,12 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
       new Node('plane', {f: renderVao, vao: plane})
         .rotate([1, 0, 0], -90)
         .scale(10)
-    );
+    )
+    .add (
+      new Node('sphere', {f: renderVao, vao: sphere})
+        .move([0, 0, 0])
+    )
+
 
   const texture = new Texture(gl)
     .setTextureID(textureIndex.forName('uvgrid'))
@@ -148,10 +154,13 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     .setWrapMode(gl.CLAMP_TO_EDGE)
     .setParameters()
     .allocate(0, p2width, p2height);
-  gl.clearColor(0, 0, 0, 1) ;
+  const fboDepthBuffer = new Renderbuffer(gl)
+    .bind()
+    .allocate(p2width, p2height);
   const fbo = new Framebuffer(gl)
     .bind()
-    .attachTexture2D(gl.COLOR_ATTACHMENT0, fboColorTexture.raw);
+    .attachTexture2D(gl.COLOR_ATTACHMENT0, fboColorTexture.raw)
+    .attachRenderbuffer(gl.DEPTH_ATTACHMENT, fboDepthBuffer.raw);
 
   gl.clearColor(0, 0, 0, 1);
   gl.enable(gl.DEPTH_TEST);
@@ -226,16 +235,21 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
       .bindToIndex(vaoIndex.forName('vertex'));
 
     // UVs
+    const uvs = new Float32Array(numPoints * 2);
+    range(0, numPoints / 6).forEach(i => {
+      const view = new Float32Array(uvs.buffer, i * 4 * 6 * 2, 12)
+      view.set([
+          0, 1,
+          1, 0,
+          0, 0,
+          0, 1,
+          1, 1,
+          1, 0,
+      ]);
+    });
     vao.createVBO()
       .bind()
-      .setData(new Float32Array([
-        0, 1,
-        1, 0,
-        0, 0,
-        0, 1,
-        1, 1,
-        1, 0,
-      ]))
+      .setData(uvs)
       .setItemSize(2)
       .bindToIndex(vaoIndex.forName('uv'));
 

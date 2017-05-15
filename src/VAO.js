@@ -105,6 +105,7 @@ class VBO {
     this.bind();
     this._gl.vertexAttribPointer(index, this._itemSize, this._type, this._normalized, this._stride, this._offset);
     this._gl.vertexAttribDivisor(index, this._divisor);
+    this._gl.enableVertexAttribArray(index);
     return this;
   }
 }

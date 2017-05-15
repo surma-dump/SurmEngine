@@ -57,7 +57,6 @@ export class Program {
   }
 
   bindInVariable(name, index) {
-    this._gl.enableVertexAttribArray(index);
     this._gl.bindAttribLocation(this._program, index, name);
     return this;
   }

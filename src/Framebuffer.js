@@ -38,8 +38,6 @@ export class Renderbuffer {
   constructor(gl) {
     this._gl = gl;
     this._renderbuffer = this._gl.createRenderbuffer();
-    this.width = 512;
-    this.height = 512;
     this.type = this._gl.DEPTH_COMPONENT16;
   }
 
@@ -52,23 +50,13 @@ export class Renderbuffer {
     return this;
   }
 
-  setWidth(val) {
-    this.width = val;
-    return this;
-  }
-
-  setHeight(val) {
-    this.height = val;
-    return this;
-  }
-
   setType(val) {
     this.type = val;
     return this;
   }
 
-  allocate() {
-    this._gl.renderbufferStorageMultisample(this._gl.RENDERBUFFER, 16, this.type, this.width, this.height);
+  allocate(width, height) {
+    this._gl.renderbufferStorage(this._gl.RENDERBUFFER, this.type, width, height);
     return this;
   }
 }
