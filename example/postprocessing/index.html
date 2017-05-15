@@ -16,7 +16,7 @@ import {VAO} from '/dist/VAO.js';
 import {Helpers} from '/dist/Helpers.js';
 import {Camera} from '/dist/Camera.js';
 import {XYPlane, NormalizedCubeSphere} from '/dist/Mesh.js';
-import {Program} from '/dist/Program.js';
+import {Program, ProgramUniformCache} from '/dist/Program.js';
 import {Node} from '/dist/SceneGraph.js';
 import {Texture} from '/dist/Texture.js';
 import {GlLogger} from '/dist/Debug.js';
@@ -42,6 +42,7 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
   const program = new Program(gl)
     .setVertexShader(await vertexShader)
     .setFragmentShader(await fragmentShader);
+  const uniforms = new ProgramUniformCache(program);
 
   const vaoIndex = new IndexManager();
   const textureIndex = new IndexManager();
@@ -63,12 +64,6 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     .link()
     .activate();
 
-  const viewUniform = program.referenceUniform('view');
-  const cameraUniform = program.referenceUniform('camera');
-  const lightPositionUniform = program.referenceUniform('lightPosition');
-  const modelUniform = program.referenceUniform('model');
-  const samplerUniform = program.referenceUniform('sampler');
-  samplerUniform.setInteger(textureIndex.forName('uvgrid'));
 
   const scratchMatrix = mat4.create();
   const scratchVector = vec4.create();
@@ -84,7 +79,7 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
                   new Node('rotation_x')
                     .add(
                       new Node('camera', {f: node => {
-                        cameraUniform.setMatrix4(mat4.invert(scratchMatrix, node.accumulatedTransform));
+                        uniforms.get('camera').setMatrix4(mat4.invert(scratchMatrix, node.accumulatedTransform));
                       }})
                     )
                     .rotate([1, 0, 0], -90)
@@ -96,7 +91,7 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     .add(
       new Node('light', {f: node => {
         vec4.set(scratchVector, 0, 0, 0, 1);
-        lightPositionUniform.setVector4(vec4.transformMat4(scratchVector, scratchVector, node.accumulatedTransform));
+        uniforms.get('lightPosition').setVector4(vec4.transformMat4(scratchVector, scratchVector, node.accumulatedTransform));
       }})
         .move([10, 1, 10])
     )
@@ -114,6 +109,7 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     .setParameters()
     .uploadImage2D(0, await image)
     .generateMipmap();
+  uniforms.get('sampler').setInteger(textureIndex.forName('uvgrid'));
 
   const keyboard = new KeyboardState();
   const mouse = new MouseController(gl);
@@ -121,7 +117,7 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
 
   Helpers.autosize(gl, _ => {
     camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
-    viewUniform.setMatrix4(camera.viewMatrix);
+    uniforms.get('view').setMatrix4(camera.viewMatrix);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   });
 
@@ -233,7 +229,7 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
   }
 
   function renderVao(node) {
-    modelUniform.setMatrix4(node.accumulatedTransform);
+    uniforms.get('model').setMatrix4(node.accumulatedTransform);
     node.data.vao.vao.bind();
     gl.drawArrays(gl.TRIANGLES, 0, node.data.vao.numPoints);
   }

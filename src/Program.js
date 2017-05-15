@@ -102,3 +102,17 @@ class Uniform {
     this._gl.uniform1i(this._ref, i);
   }
 }
+
+export class ProgramUniformCache {
+  constructor(program) {
+    this._program = program;
+    this._gl = program._gl;
+    this._memo = new Map();
+  }
+
+  get(name) {
+    if(!this._memo.has(name))
+      this._memo.set(name, this._program.referenceUniform(name));
+    return this._memo.get(name);
+  }
+}
