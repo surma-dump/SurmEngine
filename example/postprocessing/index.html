@@ -45,12 +45,12 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
 
   const vaoIndex = new IndexManager();
   const textureIndex = new IndexManager();
+  const plane = createPlane(gl, vaoIndex);
   program
     .bindInVariable('in_vertex', vaoIndex.forName('vertex'))
     .bindInVariable('in_uv', vaoIndex.forName('uv'))
     .bindInVariable('in_normal', vaoIndex.forName('normal'));
 
-  const plane = createPlane(gl, vaoIndex);
   const sphere = {}; //createSphere(gl, vaoIndex);
 
   const camera =
@@ -149,17 +149,16 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     trackballCamera.update(delta);
 
     // Render scene to FBO
-    // fbo.bind();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    fbo.bind();
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     for(let node of scene.propagate())
       if(node.data.f) node.data.f(node);
 
     // Copy FBO to screen
-    // gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbo.raw);
-    // gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-    // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    // gl.blitFramebuffer(0, 0, gl.canvas.width, gl.canvas.height, 0, 0, gl.canvas.width, gl.canvas.height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbo.raw);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.blitFramebuffer(0, 0, gl.canvas.width, gl.canvas.height, 0, 0, gl.canvas.width, gl.canvas.height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
     logger.filter = _ => false;
   });
 
