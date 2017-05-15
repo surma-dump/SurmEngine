@@ -7,6 +7,7 @@ export class Texture {
     this._textureID = 0;
     this._maxMipmapLevel = 1000;
     this._magFilter = this._gl.LINEAR;
+    this._wrapMode = gl.REPEAT;
     this._minFilter = this._gl.NEAREST_MIPMAP_LINEAR;
   }
 
@@ -38,6 +39,15 @@ export class Texture {
 
   setTextureID(val) {
     this._textureID = val;
+    return this;
+  }
+
+  get wrapMode() {
+    return this._wrapMode;
+  }
+
+  setWrapMode(val) {
+    this._wrapMode = val;
     return this;
   }
 
@@ -82,6 +92,8 @@ export class Texture {
     this._gl.texParameteri(this._type, this._gl.TEXTURE_MAX_LEVEL, this._maxMipmapLevel);
     this._gl.texParameteri(this._type, this._gl.TEXTURE_MAG_FILTER, this._magFilter);
     this._gl.texParameteri(this._type, this._gl.TEXTURE_MIN_FILTER, this._minFilter);
+    this._gl.texParameteri(this._type, this._gl.TEXTURE_WRAP_S, this._wrapMode);
+    this._gl.texParameteri(this._type, this._gl.TEXTURE_WRAP_T, this._wrapMode);
     return this;
   }
 

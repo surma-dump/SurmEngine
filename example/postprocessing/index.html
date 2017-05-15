@@ -143,8 +143,11 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     .setTextureID(textureIndex.forName('fbo_color'))
     .activate()
     .bind()
-    .allocate(0, p2width, p2height)
-    .generateMipmap();
+    // No mipmapping on the postprocessing texture
+    .setMaxMipmapLevel(0)
+    .setWrapMode(gl.CLAMP_TO_EDGE)
+    .setParameters()
+    .allocate(0, p2width, p2height);
   gl.clearColor(0, 0, 0, 1) ;
   const fbo = new Framebuffer(gl)
     .bind()
@@ -157,8 +160,8 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
 
   let totalTime = 0;
   window.loop = Helpers.loop(delta => {
-    totalTime += delta;
     gl.viewport(0, 0, p2width, p2height);
+    totalTime += delta;
     trackballCamera.update(delta);
     program.activate();
     // Render scene to FBO using first program
@@ -170,7 +173,6 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     // Render FBO to screen using second program
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    // gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     ppProgram.activate();
     ppVAO.bind();
     ppUniforms.get('time').setFloat(totalTime);
