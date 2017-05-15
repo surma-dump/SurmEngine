@@ -46,10 +46,9 @@ export class Helpers {
       gl.viewport(0, 0, w, h);
       f && f();
     };
-    if(typeof ResizeObserver === 'undefined') {
-      const rect = gl.canvas.getBoundingClientRect();
-      update(rect.width * opts.density, rect.height * opts.density);
-    } else {
+    const rect = gl.canvas.getBoundingClientRect();
+    update(rect.width * opts.density, rect.height * opts.density);
+    if(typeof ResizeObserver !== 'undefined') {
       const ro = new ResizeObserver(entries => {
         const w = entries[0].contentRect.width * opts.density;
         const h = entries[0].contentRect.height * opts.density;

@@ -15,7 +15,7 @@
 import {VAO} from '/dist/VAO.js';
 import {Helpers} from '/dist/Helpers.js';
 import {Camera} from '/dist/Camera.js';
-import {XYPlane} from '/dist/Mesh.js';
+import {XYPlane, NormalizedCubeSphere} from '/dist/Mesh.js';
 import {Program} from '/dist/Program.js';
 import {Node} from '/dist/SceneGraph.js';
 import {Texture} from '/dist/Texture.js';
@@ -23,6 +23,7 @@ import {GlLogger} from '/dist/Debug.js';
 import {IndexManager} from '/dist/IndexManager.js';
 import {TrackballCamera} from '/dist/TrackballCamera.js';
 import {KeyboardState,MouseController} from '/dist/Input.js';
+import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
 
 (async function() {
   function range(start, len) {
@@ -33,7 +34,7 @@ import {KeyboardState,MouseController} from '/dist/Input.js';
   const fragmentShader = fetch('fragment.glsl').then(r => r.text());
 
   const canvas = document.querySelector('canvas');
-  window._gl = canvas.getContext('webgl2');
+  window._gl = canvas.getContext('webgl2', {antialias: false});
   window.logger = new GlLogger(_gl);
   window.gl = logger.proxy;
 
@@ -42,59 +43,22 @@ import {KeyboardState,MouseController} from '/dist/Input.js';
     .setVertexShader(await vertexShader)
     .setFragmentShader(await fragmentShader);
 
-  const numPoints = XYPlane.numPoints();
-
   const vaoIndex = new IndexManager();
-  const vao = new VAO(gl);
-  vao.bind();
-
-  // Vertices
-  vao.createVBO()
-    .bind()
-    .setData(XYPlane.vertices(new Float32Array(numPoints * 3)))
-    .setItemSize(3)
-    .bindToIndex(vaoIndex.forName('vertex'));
-
-  // UVs
-  const uvArray = new Float32Array(numPoints * 2);
-  uvArray.set([
-    0, 1,
-    1, 0,
-    0, 0,
-    0, 1,
-    1, 1,
-    1, 0,
-  ]);
-  vao.createVBO()
-    .bind()
-    .setData(uvArray)
-    .setItemSize(2)
-    .bindToIndex(vaoIndex.forName('uv'));
-
-  // Normals
-  vao.createVBO()
-    .bind()
-    .setData(XYPlane.normals(new Float32Array(numPoints * 3)))
-    .setItemSize(3)
-    .bindToIndex(vaoIndex.forName('normal'));
-
   program
     .bindInVariable('in_vertex', vaoIndex.forName('vertex'))
     .bindInVariable('in_uv', vaoIndex.forName('uv'))
     .bindInVariable('in_normal', vaoIndex.forName('normal'));
 
+  const plane = createPlane(gl, vaoIndex);
+  const sphere = createSphere(gl, vaoIndex);
+
   const camera =
     new Camera()
-      .setAspectRatio(gl.canvas.width / gl.canvas.height)
       .setFov(30)
       .setNearPlane(0.1)
       .setFarPlane(1000);
 
   window.scene = new Node()
-    .add(
-      new Node('light')
-        .move([10, 1, 10])
-    )
     .add(
       new Node('player')
         .add(
@@ -106,16 +70,21 @@ import {KeyboardState,MouseController} from '/dist/Input.js';
                     .add(
                       new Node('camera', camera)
                     )
+                    .rotate([1, 0, 0], -90)
                 )
             )
         )
         .move([0, 1, 0])
     )
+    .add(
+      new Node('light')
+        .move([10, 1, 10])
+    )
     .add (
-      new Node('plane')
+      new Node('plane', plane)
         .rotate([1, 0, 0], -90)
         .scale(10)
-    )
+    );
 
   program
     .link()
@@ -128,8 +97,7 @@ import {KeyboardState,MouseController} from '/dist/Input.js';
   const samplerUniform = program.referenceUniform('sampler');
 
   const textureIndex = new IndexManager();
-  const texture = new Texture(gl);
-  texture
+  const texture = new Texture(gl)
     .setTextureID(textureIndex.forName('uvgrid'))
     .activate()
     .bind()
@@ -138,41 +106,130 @@ import {KeyboardState,MouseController} from '/dist/Input.js';
     .generateMipmap();
   samplerUniform.setInteger(textureIndex.forName('uvgrid'));
 
-
-  gl.clearColor(0, 0, 0, 1);
-  gl.enable(gl.DEPTH_TEST);
-  gl.enable(gl.CULL_FACE);
-  gl.cullFace(gl.BACK);
-  Helpers.autosize(gl, _ => {
-    camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
-    viewUniform.setMatrix4(camera.viewMatrix);
-  });
-
   const keyboard = new KeyboardState();
   const mouse = new MouseController(gl);
   canvas.addEventListener('click', _ => mouse.capture());
+
+  Helpers.autosize(gl, _ => {
+    camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
+    viewUniform.setMatrix4(camera.viewMatrix);
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+  });
 
   const scratchMatrix = mat4.create();
   const scratchVector = vec4.create();
   const player = scene.findByName('player');
   const cameraObj = scene.findByName('camera');
-  const light = scene.findByName('light');
-  const plane = scene.findByName('plane');
+  const lightObj = scene.findByName('light');
+  const planeObj = scene.findByName('plane');
   const trackballCamera = new TrackballCamera(player, mouse, keyboard);
+  const [p2width, p2height] = [gl.canvas.width, gl.canvas.height].map(x => 1<<Math.ceil(Math.log2(x)));
+  const colorTex = new Texture(gl)
+    .setTextureID(textureIndex.forName('fbo_color'))
+    .activate()
+    .bind()
+    .allocate(0, p2width, p2height)
+    .generateMipmap();
+  gl.clearColor(0, 0, 0, 1);
+  const fbo = new Framebuffer(gl)
+    .bind()
+    .attachTexture2D(gl.COLOR_ATTACHMENT0, colorTex.raw);
+
+  gl.clearColor(0, 0, 0, 1);
+  gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.CULL_FACE);
+  gl.cullFace(gl.BACK);
+
   window.loop = Helpers.loop(delta => {
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     trackballCamera.update(delta);
 
     for(let _ of scene.propagate());
     cameraUniform.setMatrix4(mat4.invert(scratchMatrix, cameraObj.accumulatedTransform));
     vec4.set(scratchVector, 0, 0, 0, 1);
-    lightPositionUniform.setVector4(vec4.transformMat4(scratchVector, scratchVector, light.accumulatedTransform));
+    lightPositionUniform.setVector4(vec4.transformMat4(scratchVector, scratchVector, lightObj.accumulatedTransform));
     modelUniform.setMatrix4(plane.accumulatedTransform);
-    // modelUniform.setMatrix4(mat4.create());
-    gl.drawArrays(gl.TRIANGLES, 0, numPoints);
+    fbo.bind();
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    planeObj.data.vao.bind();
+    gl.drawArrays(gl.TRIANGLES, 0, planeObj.data.vao);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbo.raw);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.blitFramebuffer(0, 0, gl.canvas.width, gl.canvas.height, 0, 0, gl.canvas.width, gl.canvas.height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
     logger.filter = _ => false;
   });
+
+  function createPlane(gl, vaoIndex) {
+    const numPoints = XYPlane.numPoints();
+    const vao = new VAO(gl);
+    vao.bind();
+    // Vertices
+    vao.createVBO()
+      .bind()
+      .setData(XYPlane.vertices(new Float32Array(numPoints * 3)))
+      .setItemSize(3)
+      .bindToIndex(vaoIndex.forName('vertex'));
+
+    // UVs
+    vao.createVBO()
+      .bind()
+      .setData(new Float32Array([
+        0, 1,
+        1, 0,
+        0, 0,
+        0, 1,
+        1, 1,
+        1, 0,
+      ]))
+      .setItemSize(2)
+      .bindToIndex(vaoIndex.forName('uv'));
+
+    // Normals
+    vao.createVBO()
+      .bind()
+      .setData(XYPlane.normals(new Float32Array(numPoints * 3)))
+      .setItemSize(3)
+      .bindToIndex(vaoIndex.forName('normal'));
+
+    return {vao, numPoints};
+  }
+
+  function createSphere(gl, vaoIndex) {
+    const numPoints = NormalizedCubeSphere.numPoints();
+    const vao = new VAO(gl);
+    vao.bind();
+    // Vertices
+    vao.createVBO()
+      .bind()
+      .setData(NormalizedCubeSphere.vertices(new Float32Array(numPoints * 3)))
+      .setItemSize(3)
+      .bindToIndex(vaoIndex.forName('vertex'));
+
+    // UVs
+    vao.createVBO()
+      .bind()
+      .setData(new Float32Array([
+        0, 1,
+        1, 0,
+        0, 0,
+        0, 1,
+        1, 1,
+        1, 0,
+      ]))
+      .setItemSize(2)
+      .bindToIndex(vaoIndex.forName('uv'));
+
+    // Normals
+    vao.createVBO()
+      .bind()
+      .setData(NormalizedCubeSphere.normals(new Float32Array(numPoints * 3)))
+      .setItemSize(3)
+      .bindToIndex(vaoIndex.forName('normal'));
+
+    return {vao, numPoints};
+  }
 
 })();
 

@@ -10,13 +10,8 @@ export class Texture {
     this._minFilter = this._gl.NEAREST_MIPMAP_LINEAR;
   }
 
-  get VALID_TYPES() {
-    return [
-      this._gl.GL_TEXTURE_2D,
-      this._gl.GL_TEXTURE_3D,
-      this._gl.GL_TEXTURE_2D_ARRAY,
-      this._gl.GL_TEXTURE_CUBE_MAP,
-    ];
+  get raw() {
+    return this._texture;
   }
 
   get type() {
@@ -28,22 +23,6 @@ export class Texture {
     return this;
   }
 
-  setTypeChecked(val) {
-    if(!this.VALID_TYPES.contains(val))
-      throw new Error(`${val} is not a valid texture type (see VALID_TYPES)`);
-    return this.setType(val);
-  }
-
-  get VALID_INTERNAL_FORMATS() {
-    return [
-      this._gl.RGB,
-      this._gl.RGBA,
-      this._gl.LUMINANCE_ALPHA,
-      this._gl.LUMINANCE,
-      this._gl.ALPHA,
-    ];
-  }
-
   get internalFormat() {
     return this._internalFormat;
   }
@@ -51,12 +30,6 @@ export class Texture {
   setInternalFormat(val) {
     this._internalFormat = val;
     return this;
-  }
-
-  setInternalFormatChecked(val) {
-    if(!this.VALID_INTERNAL_FORMATS.contains(val))
-      throw new Error(`${val} is not a valid internal format`);
-    return this.setInternalFormat(val);
   }
 
   get textureID() {
@@ -117,9 +90,13 @@ export class Texture {
     return this;
   }
 
+  allocate(level, width, height) {
+    this._gl.texImage2D(this._type, level, this._internalFormat, width, height, 0, this._gl.RGBA, this._gl.UNSIGNED_BYTE, null);
+    return this;
+  }
+
   generateMipmap() {
     this._gl.generateMipmap(this._type);
     return this;
   }
-
 }
