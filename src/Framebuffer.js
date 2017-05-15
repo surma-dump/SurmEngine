@@ -29,10 +29,9 @@ export class Framebuffer {
       'FRAMEBUFFER_INCOMPLETE_ATTACHMENT',
       'FRAMEBUFFER_INCOMPLETE_DIMENSIONS',
       'FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT',
-      'FRAMEBUFFER_UNSUPPORTED'
+      'FRAMEBUFFER_UNSUPPORTED',
     ].find(k => this._gl[k] === status);
   }
-
 }
 
 export class Renderbuffer {

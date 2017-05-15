@@ -47,12 +47,12 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
   const vaoIndex = new IndexManager();
   const textureIndex = new IndexManager();
   const plane = createPlane(gl, vaoIndex);
+  // const sphere = createSphere(gl, vaoIndex);
   program
     .bindInVariable('in_vertex', vaoIndex.forName('vertex'))
     .bindInVariable('in_uv', vaoIndex.forName('uv'))
     .bindInVariable('in_normal', vaoIndex.forName('normal'));
 
-  const sphere = {}; //createSphere(gl, vaoIndex);
 
   const camera =
     new Camera()
@@ -63,7 +63,6 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
   program
     .link()
     .activate();
-
 
   const scratchMatrix = mat4.create();
   const scratchVector = vec4.create();
@@ -82,7 +81,6 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
                         uniforms.get('camera').setMatrix4(mat4.invert(scratchMatrix, node.accumulatedTransform));
                       }})
                     )
-                    .rotate([1, 0, 0], -90)
                 )
             )
         )
@@ -93,14 +91,13 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
         vec4.set(scratchVector, 0, 0, 0, 1);
         uniforms.get('lightPosition').setVector4(vec4.transformMat4(scratchVector, scratchVector, node.accumulatedTransform));
       }})
-        .move([10, 1, 10])
+        .move([10, 1, -10])
     )
     .add (
       new Node('plane', {f: renderVao, vao: plane})
         .rotate([1, 0, 0], -90)
         .scale(10)
     );
-
 
   const texture = new Texture(gl)
     .setTextureID(textureIndex.forName('uvgrid'))
@@ -111,21 +108,21 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     .generateMipmap();
   uniforms.get('sampler').setInteger(textureIndex.forName('uvgrid'));
 
-  const keyboard = new KeyboardState();
-  const mouse = new MouseController(gl);
-  canvas.addEventListener('click', _ => mouse.capture());
-
   Helpers.autosize(gl, _ => {
     camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
     uniforms.get('view').setMatrix4(camera.viewMatrix);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   });
 
+  const keyboard = new KeyboardState();
+  const mouse = new MouseController(gl);
   const player = scene.findByName('player');
   const trackballCamera = new TrackballCamera(player, mouse, keyboard);
+  canvas.addEventListener('click', _ => mouse.capture());
+
   // Get next power-of-2 for width and height
   const [p2width, p2height] = [gl.canvas.width, gl.canvas.height].map(x => Math.pow(2, Math.ceil(Math.log2(x))));
-  const colorTex = new Texture(gl)
+  const fboColorTexture = new Texture(gl)
     .setTextureID(textureIndex.forName('fbo_color'))
     .activate()
     .bind()
@@ -134,7 +131,7 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
   gl.clearColor(0, 0, 0, 1) ;
   const fbo = new Framebuffer(gl)
     .bind()
-    .attachTexture2D(gl.COLOR_ATTACHMENT0, colorTex.raw);
+    .attachTexture2D(gl.COLOR_ATTACHMENT0, fboColorTexture.raw);
 
   gl.clearColor(0, 0, 0, 1);
   gl.enable(gl.DEPTH_TEST);
