@@ -44,6 +44,7 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     .setFragmentShader(await fragmentShader);
 
   const vaoIndex = new IndexManager();
+  const textureIndex = new IndexManager();
   program
     .bindInVariable('in_vertex', vaoIndex.forName('vertex'))
     .bindInVariable('in_uv', vaoIndex.forName('uv'))
@@ -58,6 +59,20 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
       .setNearPlane(0.1)
       .setFarPlane(1000);
 
+  program
+    .link()
+    .activate();
+
+  const viewUniform = program.referenceUniform('view');
+  const cameraUniform = program.referenceUniform('camera');
+  const lightPositionUniform = program.referenceUniform('lightPosition');
+  const modelUniform = program.referenceUniform('model');
+  const samplerUniform = program.referenceUniform('sampler');
+  samplerUniform.setInteger(textureIndex.forName('uvgrid'));
+
+  const scratchMatrix = mat4.create();
+  const scratchVector = vec4.create();
+
   window.scene = new Node()
     .add(
       new Node('player')
@@ -68,7 +83,9 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
                 .add(
                   new Node('rotation_x')
                     .add(
-                      new Node('camera', camera)
+                      new Node('camera', {f: node => {
+                        cameraUniform.setMatrix4(mat4.invert(scratchMatrix, node.accumulatedTransform));
+                      }})
                     )
                     .rotate([1, 0, 0], -90)
                 )
@@ -77,26 +94,19 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
         .move([0, 1, 0])
     )
     .add(
-      new Node('light')
+      new Node('light', {f: node => {
+        vec4.set(scratchVector, 0, 0, 0, 1);
+        lightPositionUniform.setVector4(vec4.transformMat4(scratchVector, scratchVector, node.accumulatedTransform));
+      }})
         .move([10, 1, 10])
     )
     .add (
-      new Node('plane', plane)
+      new Node('plane', {f: renderVao, vao: plane})
         .rotate([1, 0, 0], -90)
         .scale(10)
     );
 
-  program
-    .link()
-    .activate();
 
-  const viewUniform = program.referenceUniform('view');
-  const cameraUniform = program.referenceUniform('camera');
-  const lightPositionUniform = program.referenceUniform('lightPosition');
-  const modelUniform = program.referenceUniform('model');
-  const samplerUniform = program.referenceUniform('sampler');
-
-  const textureIndex = new IndexManager();
   const texture = new Texture(gl)
     .setTextureID(textureIndex.forName('uvgrid'))
     .activate()
@@ -104,7 +114,6 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     .setParameters()
     .uploadImage2D(0, await image)
     .generateMipmap();
-  samplerUniform.setInteger(textureIndex.forName('uvgrid'));
 
   const keyboard = new KeyboardState();
   const mouse = new MouseController(gl);
@@ -116,21 +125,17 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   });
 
-  const scratchMatrix = mat4.create();
-  const scratchVector = vec4.create();
   const player = scene.findByName('player');
-  const cameraObj = scene.findByName('camera');
-  const lightObj = scene.findByName('light');
-  const planeObj = scene.findByName('plane');
   const trackballCamera = new TrackballCamera(player, mouse, keyboard);
-  const [p2width, p2height] = [gl.canvas.width, gl.canvas.height].map(x => 1<<Math.ceil(Math.log2(x)));
+  // Get next power-of-2 for width and height
+  const [p2width, p2height] = [gl.canvas.width, gl.canvas.height].map(x => Math.pow(2, Math.ceil(Math.log2(x))));
   const colorTex = new Texture(gl)
     .setTextureID(textureIndex.forName('fbo_color'))
     .activate()
     .bind()
     .allocate(0, p2width, p2height)
     .generateMipmap();
-  gl.clearColor(0, 0, 0, 1);
+  gl.clearColor(0, 0, 0, 1) ;
   const fbo = new Framebuffer(gl)
     .bind()
     .attachTexture2D(gl.COLOR_ATTACHMENT0, colorTex.raw);
@@ -141,30 +146,27 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
   gl.cullFace(gl.BACK);
 
   window.loop = Helpers.loop(delta => {
-
     trackballCamera.update(delta);
 
-    for(let _ of scene.propagate());
-    cameraUniform.setMatrix4(mat4.invert(scratchMatrix, cameraObj.accumulatedTransform));
-    vec4.set(scratchVector, 0, 0, 0, 1);
-    lightPositionUniform.setVector4(vec4.transformMat4(scratchVector, scratchVector, lightObj.accumulatedTransform));
-    modelUniform.setMatrix4(plane.accumulatedTransform);
-    fbo.bind();
+    // Render scene to FBO
+    // fbo.bind();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    planeObj.data.vao.bind();
-    gl.drawArrays(gl.TRIANGLES, 0, planeObj.data.vao);
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbo.raw);
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    for(let node of scene.propagate())
+      if(node.data.f) node.data.f(node);
 
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.blitFramebuffer(0, 0, gl.canvas.width, gl.canvas.height, 0, 0, gl.canvas.width, gl.canvas.height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    // Copy FBO to screen
+    // gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbo.raw);
+    // gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    // gl.blitFramebuffer(0, 0, gl.canvas.width, gl.canvas.height, 0, 0, gl.canvas.width, gl.canvas.height, gl.COLOR_BUFFER_BIT, gl.NEAREST);
     logger.filter = _ => false;
   });
 
   function createPlane(gl, vaoIndex) {
     const numPoints = XYPlane.numPoints();
-    const vao = new VAO(gl);
-    vao.bind();
+    const vao = new VAO(gl).bind();
+
     // Vertices
     vao.createVBO()
       .bind()
@@ -229,6 +231,12 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
       .bindToIndex(vaoIndex.forName('normal'));
 
     return {vao, numPoints};
+  }
+
+  function renderVao(node) {
+    modelUniform.setMatrix4(node.accumulatedTransform);
+    node.data.vao.vao.bind();
+    gl.drawArrays(gl.TRIANGLES, 0, node.data.vao.numPoints);
   }
 
 })();

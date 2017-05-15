@@ -11,4 +11,5 @@ void main() {
   out_color = texture(sampler, uv);
   float lambert = clamp(dot(normalize(light), normalize(normal)), 0.35, 1.0);
   out_color = mix(black, out_color, lambert);
+  out_color = vec4(1.0, 0.0, 0.0, 1.0);
 }
