@@ -95,10 +95,12 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
                 .add(
                   new Node('rotation_x')
                     .add(
-                      new Node('camera', {f: node => {
-                        uniforms.get('view').setMatrix4(camera.viewMatrix);
-                        uniforms.get('camera').setMatrix4(mat4.invert(scratchMatrix, node.accumulatedTransform));
-                      }})
+                      new Node('camera', {
+                        update: node => {
+                          uniforms.get('view').setMatrix4(camera.viewMatrix);
+                          uniforms.get('camera').setMatrix4(mat4.invert(scratchMatrix, node.accumulatedTransform));
+                        },
+                      })
                     )
                 )
             )
@@ -107,19 +109,34 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
         .move([0, 1, 0])
     )
     .add(
-      new Node('light', {f: node => {
-        vec4.set(scratchVector, 0, 0, 0, 1);
-        uniforms.get('lightPosition').setVector4(vec4.transformMat4(scratchVector, scratchVector, node.accumulatedTransform));
-      }})
+      new Node('light', {
+        update: node => {
+          vec4.set(scratchVector, 0, 0, 0, 1);
+          uniforms.get('lightPosition').setVector4(vec4.transformMat4(scratchVector, scratchVector, node.accumulatedTransform));
+        }
+      })
         .move([10, 1, -10])
     )
     .add (
-      new Node('plane', {f: renderVao, vao: plane})
+      new Node('plane', {
+        render: renderVao,
+        vao: plane,
+      })
         .rotate([1, 0, 0], -90)
         .scale(10)
     )
     .add (
-      new Node('sphere', {f: renderVao, vao: sphere})
+      new Node('sphere', {
+        tick: (node, delta) => {
+          const oldY = Math.sin(node.data.time/1000 * 2 * Math.PI / 5);
+          node.data.time += delta;
+          const newY = Math.sin(node.data.time/1000 * 2 * Math.PI / 5);
+          node.move([0, newY - oldY, 0]);
+        },
+        render: renderVao,
+        vao: sphere,
+        time: 0,
+      })
         .move([0, 0, 0])
     )
 
@@ -177,9 +194,14 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     fbo.bind();
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     for(let node of scene.propagate())
-      if(node.data.f) node.data.f(node);
+      if(node.data.tick) node.data.tick(node, delta);
+    for(let node of scene.propagate())
+      if(node.data.update) node.data.update(node);
+    for(let node of scene.propagate())
+      if(node.data.render) node.data.render(node);
 
     // Render FBO to screen using second program
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     ppProgram.activate();
