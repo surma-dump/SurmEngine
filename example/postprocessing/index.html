@@ -100,6 +100,7 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
                           uniforms.get('view').setMatrix4(camera.viewMatrix);
                           uniforms.get('camera').setMatrix4(mat4.invert(scratchMatrix, node.accumulatedTransform));
                         },
+                        camera
                       })
                     )
                 )
@@ -110,12 +111,17 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     )
     .add(
       new Node('light', {
+        tick: (node, deltaTime, absoluteTime) => {
+          const oldX = Math.sin((absoluteTime-deltaTime)/1000 * 2 * Math.PI / 10) * 10;
+          const newX = Math.sin((absoluteTime)/1000 * 2 * Math.PI / 10) * 10;
+          node.move([newX - oldX, 0, 0]);
+        },
         update: node => {
           vec4.set(scratchVector, 0, 0, 0, 1);
           uniforms.get('lightPosition').setVector4(vec4.transformMat4(scratchVector, scratchVector, node.accumulatedTransform));
         }
       })
-        .move([10, 1, -10])
+        .move([0, 1, -10])
     )
     .add (
       new Node('plane', {
@@ -127,17 +133,15 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     )
     .add (
       new Node('sphere', {
-        tick: (node, delta) => {
-          const oldY = Math.sin(node.data.time/1000 * 2 * Math.PI / 5);
-          node.data.time += delta;
-          const newY = Math.sin(node.data.time/1000 * 2 * Math.PI / 5);
+        tick: (node, deltaTime, absoluteTime) => {
+          const oldY = Math.sin((absoluteTime-deltaTime)/1000 * 2 * Math.PI / 5);
+          const newY = Math.sin(absoluteTime/1000 * 2 * Math.PI / 5);
           node.move([0, newY - oldY, 0]);
         },
         render: renderVao,
         vao: sphere,
-        time: 0,
       })
-        .move([0, 0, 0])
+        .move([0, 2, 0])
     )
 
 
@@ -194,7 +198,7 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     fbo.bind();
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     for(let node of scene.propagate())
-      if(node.data.tick) node.data.tick(node, delta);
+      if(node.data.tick) node.data.tick(node, delta, totalTime);
     for(let node of scene.propagate())
       if(node.data.update) node.data.update(node);
     for(let node of scene.propagate())
