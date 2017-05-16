@@ -197,11 +197,11 @@ import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
     // Render scene to FBO using first program
     fbo.bind();
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    for(let node of scene.propagate())
+    for(let node of scene.traverse())
       if(node.data.tick) node.data.tick(node, delta, totalTime);
     for(let node of scene.propagate())
       if(node.data.update) node.data.update(node);
-    for(let node of scene.propagate())
+    for(let node of scene.traverse())
       if(node.data.render) node.data.render(node);
 
     // Render FBO to screen using second program

@@ -64,6 +64,12 @@ export class Node {
     return this.find(n => n.name === name);
   }
 
+  * traverse() {
+    yield this;
+    for(let childNode of this._children)
+      yield* childNode.traverse(this._accumulatedTransform);
+  }
+
   * propagate(transform) {
     if(transform) {
       mat4.multiply(this._accumulatedTransform, transform, this._transform);
