@@ -1,0 +1,301 @@
+<!doctype html>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+  canvas {
+    width: 100vw;
+    height: 100vh;
+  }
+</style>
+<canvas></canvas>
+<script src="/node_modules/gl-matrix/dist/gl-matrix-min.js"></script>
+<script type="module">
+import {VAO} from '/dist/VAO.js';
+import {Helpers} from '/dist/Helpers.js';
+import {Camera} from '/dist/Camera.js';
+import {XYPlane, NormalizedCubeSphere} from '/dist/Mesh.js';
+import {Program, ProgramUniformCache} from '/dist/Program.js';
+import {Node} from '/dist/SceneGraph.js';
+import {Texture} from '/dist/Texture.js';
+import {IndexManager} from '/dist/IndexManager.js';
+import {TrackballCamera} from '/dist/TrackballCamera.js';
+import {KeyboardState,MouseController} from '/dist/Input.js';
+import {Framebuffer, Renderbuffer} from '/dist/Framebuffer.js';
+
+(async function() {
+  function range(start, len) {
+    return new Array(len).fill().map((_, i) => start + i);
+  };
+
+  const canvas = document.querySelector('canvas');
+  window.gl = canvas.getContext('webgl2', {antialias: false});
+
+  const image = Helpers.loadImage('uvgrid.jpg');
+  const program = new Program(gl)
+    .setVertexShader(await fetch('vertex.glsl').then(r => r.text()))
+    .setFragmentShader(await fetch('fragment.glsl').then(r => r.text()));
+  const uniforms = new ProgramUniformCache(program);
+
+  const vaoIndex = new IndexManager();
+  const textureIndex = new IndexManager();
+  const plane = createPlane(gl, vaoIndex);
+  const sphere = createSphere(gl, vaoIndex);
+  program
+    .bindInVariable('in_vertex', vaoIndex.forName('vertex'))
+    .bindInVariable('in_uv', vaoIndex.forName('uv'))
+    .bindInVariable('in_normal', vaoIndex.forName('normal'))
+    .link()
+    .activate();
+
+
+  const [ppProgram, ppVAO, ppUniforms] = await (async _ => {
+    const program = new Program(gl)
+      .setVertexShader(await fetch('postprocessing.vertex.glsl').then(r => r.text()))
+      .setFragmentShader(await fetch('postprocessing.fragment.glsl').then(r => r.text()));
+    const uniforms = new ProgramUniformCache(program);
+    const vao = new VAO(gl).bind();
+    vao.createVBO()
+      .bind()
+      .setData(new Float32Array([
+        -1, 1,
+        -1, -1,
+        1, 1,
+        1, 1,
+        -1, -1,
+        1, -1,
+      ]))
+      .setItemSize(2)
+      .bindToIndex(0);
+    program
+      .bindInVariable('in_vertex', 0)
+      .link()
+      .activate();
+
+    uniforms.get('sampler').setInteger(textureIndex.forName('fbo_color'));
+    return [program, vao, uniforms];
+  })();
+  program.activate();
+
+  const camera =
+    new Camera()
+      .setFov(30)
+      .setNearPlane(0.1)
+      .setFarPlane(1000);
+  const scratchMatrix = mat4.create();
+  const scratchVector = vec4.create();
+  window.scene = new Node()
+    .add(
+      new Node('player')
+        .add(
+          new Node('translation')
+            .add(
+              new Node('rotation_y')
+                .add(
+                  new Node('rotation_x')
+                    .add(
+                      new Node('camera', {
+                        update: node => {
+                          uniforms.get('view').setMatrix4(camera.viewMatrix);
+                          uniforms.get('camera').setMatrix4(mat4.invert(scratchMatrix, node.accumulatedTransform));
+                        },
+                        camera
+                      })
+                    )
+                )
+            )
+            .move([0, 0, 2])
+        )
+        .move([0, 1, 0])
+    )
+    .add(
+      new Node('light', {
+        tick: (node, deltaTime, absoluteTime) => {
+          const oldX = Math.sin((absoluteTime-deltaTime)/1000 * 2 * Math.PI / 10) * 10;
+          const newX = Math.sin((absoluteTime)/1000 * 2 * Math.PI / 10) * 10;
+          node.move([newX - oldX, 0, 0]);
+        },
+        update: node => {
+          vec4.set(scratchVector, 0, 0, 0, 1);
+          uniforms.get('lightPosition').setVector4(vec4.transformMat4(scratchVector, scratchVector, node.accumulatedTransform));
+        }
+      })
+        .move([0, 1, -10])
+    )
+    .add (
+      new Node('plane', {
+        render: renderVao,
+        vao: plane,
+      })
+        .rotate([1, 0, 0], -90)
+        .scale(10)
+    )
+    .add (
+      new Node('sphere', {
+        tick: (node, deltaTime, absoluteTime) => {
+          const oldY = Math.sin((absoluteTime-deltaTime)/1000 * 2 * Math.PI / 5);
+          const newY = Math.sin(absoluteTime/1000 * 2 * Math.PI / 5);
+          node.move([0, newY - oldY, 0]);
+        },
+        render: renderVao,
+        vao: sphere,
+      })
+        .move([0, 2, 0])
+    )
+
+
+  const texture = new Texture(gl)
+    .setTextureID(textureIndex.forName('uvgrid'))
+    .activate()
+    .bind()
+    .setParameters()
+    .uploadImage2D(0, await image)
+    .generateMipmap();
+  uniforms.get('sampler').setInteger(textureIndex.forName('uvgrid'));
+
+  Helpers.autosize(gl, _ => {
+    camera.setAspectRatio(gl.canvas.width / gl.canvas.height);
+  });
+
+  const keyboard = new KeyboardState();
+  const mouse = new MouseController(gl);
+  const player = scene.findByName('player');
+  const trackballCamera = new TrackballCamera(player, mouse, keyboard);
+  canvas.addEventListener('click', _ => mouse.capture());
+
+  // Get next power-of-2 for width and height
+  const [p2width, p2height] = [gl.canvas.width, gl.canvas.height].map(x => Math.pow(2, Math.ceil(Math.log2(x))));
+  const fboColorTexture = new Texture(gl)
+    .setTextureID(textureIndex.forName('fbo_color'))
+    .activate()
+    .bind()
+    // No mipmapping on the postprocessing texture
+    .setMaxMipmapLevel(0)
+    .setWrapMode(gl.CLAMP_TO_EDGE)
+    .setParameters()
+    .allocate(0, p2width, p2height);
+  const fboDepthBuffer = new Renderbuffer(gl)
+    .bind()
+    .allocate(p2width, p2height);
+  const fbo = new Framebuffer(gl)
+    .bind()
+    .attachTexture2D(gl.COLOR_ATTACHMENT0, fboColorTexture.raw)
+    .attachRenderbuffer(gl.DEPTH_ATTACHMENT, fboDepthBuffer.raw);
+
+  gl.clearColor(0, 0, 0, 1);
+  gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.CULL_FACE);
+  gl.cullFace(gl.BACK);
+
+  let totalTime = 0;
+  window.loop = Helpers.loop(delta => {
+    gl.viewport(0, 0, p2width, p2height);
+    totalTime += delta;
+    trackballCamera.update(delta);
+    program.activate();
+    // Render scene to FBO using first program
+    fbo.bind();
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    for(let node of scene.traverse())
+      if(node.data.tick) node.data.tick(node, delta, totalTime);
+    for(let node of scene.propagate())
+      if(node.data.update) node.data.update(node);
+    for(let node of scene.traverse())
+      if(node.data.render) node.data.render(node);
+
+    // Render FBO to screen using second program
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    ppProgram.activate();
+    ppVAO.bind();
+    ppUniforms.get('time').setFloat(totalTime);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  });
+
+  function createPlane(gl, vaoIndex) {
+    const numPoints = XYPlane.numPoints();
+    const vao = new VAO(gl).bind();
+
+    // Vertices
+    vao.createVBO()
+      .bind()
+      .setData(XYPlane.vertices(new Float32Array(numPoints * 3)))
+      .setItemSize(3)
+      .bindToIndex(vaoIndex.forName('vertex'));
+
+    // UVs
+    vao.createVBO()
+      .bind()
+      .setData(new Float32Array([
+        0, 1,
+        1, 0,
+        0, 0,
+        0, 1,
+        1, 1,
+        1, 0,
+      ]))
+      .setItemSize(2)
+      .bindToIndex(vaoIndex.forName('uv'));
+
+    // Normals
+    vao.createVBO()
+      .bind()
+      .setData(XYPlane.normals(new Float32Array(numPoints * 3)))
+      .setItemSize(3)
+      .bindToIndex(vaoIndex.forName('normal'));
+
+    return {vao, numPoints};
+  }
+
+  function createSphere(gl, vaoIndex) {
+    const numPoints = NormalizedCubeSphere.numPoints();
+    const vao = new VAO(gl);
+    vao.bind();
+    // Vertices
+    vao.createVBO()
+      .bind()
+      .setData(NormalizedCubeSphere.vertices(new Float32Array(numPoints * 3)))
+      .setItemSize(3)
+      .bindToIndex(vaoIndex.forName('vertex'));
+
+    // UVs
+    const uvs = new Float32Array(numPoints * 2);
+    range(0, numPoints / 6).forEach(i => {
+      const view = new Float32Array(uvs.buffer, i * 4 * 6 * 2, 12)
+      view.set([
+          0, 1,
+          1, 0,
+          0, 0,
+          0, 1,
+          1, 1,
+          1, 0,
+      ]);
+    });
+    vao.createVBO()
+      .bind()
+      .setData(uvs)
+      .setItemSize(2)
+      .bindToIndex(vaoIndex.forName('uv'));
+
+    // Normals
+    vao.createVBO()
+      .bind()
+      .setData(NormalizedCubeSphere.normals(new Float32Array(numPoints * 3)))
+      .setItemSize(3)
+      .bindToIndex(vaoIndex.forName('normal'));
+
+    return {vao, numPoints};
+  }
+
+  function renderVao(node) {
+    uniforms.get('model').setMatrix4(node.accumulatedTransform);
+    node.data.vao.vao.bind();
+    gl.drawArrays(gl.TRIANGLES, 0, node.data.vao.numPoints);
+  }
+
+})();
+
+</script>
+

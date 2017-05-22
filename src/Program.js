@@ -57,7 +57,6 @@ export class Program {
   }
 
   bindInVariable(name, index) {
-    this._gl.enableVertexAttribArray(index);
     this._gl.bindAttribLocation(this._program, index, name);
     return this;
   }
@@ -100,5 +99,23 @@ class Uniform {
 
   setInteger(i) {
     this._gl.uniform1i(this._ref, i);
+  }
+
+  setFloat(f) {
+    this._gl.uniform1f(this._ref, f);
+  }
+}
+
+export class ProgramUniformCache {
+  constructor(program) {
+    this._program = program;
+    this._gl = program._gl;
+    this._memo = new Map();
+  }
+
+  get(name) {
+    if(!this._memo.has(name))
+      this._memo.set(name, this._program.referenceUniform(name));
+    return this._memo.get(name);
   }
 }

@@ -15,6 +15,33 @@ export class GlLogger {
     return this._proxy;
   }
 
+  static _argumentToString(arg) {
+    if(arg === undefined || arg === null)
+      return String(arg);
+    if(arg.buffer instanceof ArrayBuffer)
+      return `new ${arg.constructor.name}([${Array.from(arg).join(', ')}])`;
+    if(arg.symbols && arg.symbols.length > 0)
+      return `gl.${arg.symbols[0]}`;
+    if(arg.name)
+      return arg.name;
+    return arg.value;
+  }
+
+  generateCode() {
+    let str = `
+      const canvas = document.appendChild(document.createElement('canvas'));
+      const gl = canvas.getContext('webgl2');
+    `;
+    for(let i = 0; i < this._log.length; i++) {
+      const cmd = this._log[i];
+      if(cmd.returnValue) {
+        str += `const ${cmd.returnValue.name} = `;
+      }
+      str += `gl.${cmd.name}(${cmd.arguments.map(a => GlLogger._argumentToString(a)).join(', ')}); //${i} ${'\n'}`;
+    }
+    return str;
+  }
+
   _incTypeCounter(name) {
     let count = 0;
     if(this._typeCounter.has(name)) {
@@ -25,7 +52,7 @@ export class GlLogger {
   }
 
   _entrify(obj) {
-    if([null, undefined].some(v => obj === v))
+    if([null, undefined].includes(obj))
       return obj;
 
     const prototype = Object.getPrototypeOf(obj);
@@ -43,7 +70,7 @@ export class GlLogger {
     }
     if([Number, String, Boolean].some(v => prototype.constructor === v))
       return {
-        value: obj,
+        value: JSON.stringify(obj),
         symbols: this._constantNames.get(obj),
       };
     // Default
